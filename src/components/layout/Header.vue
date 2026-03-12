@@ -6,11 +6,15 @@ import {
   Plus,
   ShieldCheck,
   Upload,
-  HelpCircle
+  HelpCircle,
+  UserPlus,
+  Zap
 } from 'lucide-vue-next'
 import DataImportModal from '../property/DataImportModal.vue'
+import DebtCollectionModal from '../property/DebtCollectionModal.vue'
 
 const showImportModal = ref(false)
+const showDebtModal = ref(false)
 </script>
 
 <template>
@@ -37,12 +41,23 @@ const showImportModal = ref(false)
         </div>
       </div>
 
+      <button class="secondary-btn-header">
+        <UserPlus :size="16" />
+        <span>登记新租客</span>
+      </button>
+
+      <button class="secondary-btn-header action-remind" @click="showDebtModal = true">
+        <Zap :size="16" />
+        <span>一键催缴</span>
+      </button>
+
       <button class="add-btn">
         <Plus :size="18" />
         <span>添加房源</span>
       </button>
 
       <DataImportModal :show="showImportModal" @close="showImportModal = false" />
+      <DebtCollectionModal :show="showDebtModal" @close="showDebtModal = false" />
 
       <button class="icon-btn notification-btn">
         <Bell :size="20" />
@@ -175,6 +190,11 @@ input::placeholder {
 .secondary-btn-header:hover { 
   background: rgba(255, 255, 255, 0.15); 
   border-color: var(--accent-primary);
+}
+
+.action-remind:hover {
+  border-color: var(--accent-warning);
+  color: var(--accent-warning);
 }
 
 @media (max-width: 1024px) {
