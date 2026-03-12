@@ -403,7 +403,7 @@ const blockStats = computed(() => {
 .grid-scroll-area {
   overflow: auto;
   flex: 1;
-  padding: 1rem;
+  padding: 0 1rem 1rem 1rem;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -412,6 +412,25 @@ const blockStats = computed(() => {
   border-spacing: 4px; 
   table-layout: fixed;
   width: max-content;
+}
+
+.floor-col-header {
+  width: 48px;
+}
+
+.room-col-header {
+  width: 64px;
+}
+
+.building-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #111114;
+  padding: 1rem 0;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color);
 }
 .floor-tag {
   width: 48px;
