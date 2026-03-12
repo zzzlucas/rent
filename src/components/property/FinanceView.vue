@@ -17,7 +17,18 @@ import {
   X
 } from 'lucide-vue-next'
 
-const transactions = ref([
+interface Transaction {
+  id: number
+  type: 'income' | 'expense'
+  category: string
+  property: string
+  amount: number
+  date: string
+  status: 'completed' | 'pending'
+  channel: 'wechat' | 'alipay' | 'bank' | 'cash'
+}
+
+const transactions = ref<Transaction[]>([
   { id: 1, type: 'income', category: '租金缴纳', property: '秀湖花苑 8号楼 1202', amount: 3500, date: '2024-03-12', status: 'completed', channel: 'alipay' },
   { id: 2, type: 'expense', category: '维修支出', property: '秀湖花苑 12号楼 504', amount: 450, date: '2024-03-11', status: 'completed', channel: 'bank' },
   { id: 3, type: 'income', category: '租金缴纳', property: '秀湖花苑 6号楼 612', amount: 3200, date: '2024-03-10', status: 'pending', channel: 'wechat' },
@@ -27,12 +38,19 @@ const transactions = ref([
 
 const isEntryModalOpen = ref(false)
 const isScanning = ref(false)
-const newEntry = ref({
+const newEntry = ref<{
+  type: 'income' | 'expense'
+  category: string
+  property: string
+  amount: number
+  date: string
+  channel: Transaction['channel']
+}>({
   type: 'income',
   category: '',
   property: '',
   amount: 0,
-  date: new Date().toISOString().split('T')[0],
+  date: new Date().toISOString().split('T')[0] || '',
   channel: 'wechat'
 })
 
@@ -46,7 +64,7 @@ const getChannelIcon = (channel: string) => {
   }
 }
 
-const getChannelLabel = (channel: string) => {
+const getChannelLabel = (channel: string): string => {
   const labels: Record<string, string> = {
     wechat: '微信',
     alipay: '支付宝',
@@ -63,7 +81,7 @@ const handleAddEntry = () => {
     category: newEntry.value.category,
     property: newEntry.value.property,
     amount: newEntry.value.amount,
-    date: newEntry.value.date || new Date().toISOString().split('T')[0],
+    date: newEntry.value.date || new Date().toISOString().split('T')[0] || '',
     channel: newEntry.value.channel,
     status: 'completed'
   })
@@ -74,7 +92,7 @@ const handleAddEntry = () => {
     category: '',
     property: '',
     amount: 0,
-    date: new Date().toISOString().split('T')[0],
+    date: new Date().toISOString().split('T')[0] || '',
     channel: 'wechat'
   }
 }

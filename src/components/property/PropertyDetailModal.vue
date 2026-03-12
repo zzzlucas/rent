@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { X, MapPin, User, Calendar, CreditCard, ShieldCheck, Wrench } from 'lucide-vue-next'
+import { X, MapPin, User, CreditCard, ShieldCheck, Wrench } from 'lucide-vue-next'
 
 interface Property {
   id: string
