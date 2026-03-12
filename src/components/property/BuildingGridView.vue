@@ -18,6 +18,22 @@ interface Room {
   status: 'vacant' | 'occupied' | 'maintenance'
   type: string
   isManaged: boolean
+  paymentStatus?: 'normal' | 'near_due' | 'overdue'
+  // Tenant details
+  tenantName?: string
+  tenantPhone?: string
+  tenantIdCard?: string
+  tenantGender?: 'male' | 'female'
+  hasPets?: boolean
+  // New features
+  remark?: string
+  smsReminder?: boolean
+  // New lease fields
+  rent?: number
+  deposit?: number
+  paymentType?: string // e.g., '押一付一'
+  checkInDate?: string
+  leaseEndDate?: string
 }
 
 interface FloorData {
@@ -37,13 +53,29 @@ const generateRooms = (block: string) => {
       if (random > 0.8) status = 'vacant'
       else if (random > 0.95) status = 'maintenance'
       
+      const isOccupied = status === 'occupied'
+      
       floorRooms.push({
         id: `${block}-${roomNum}`,
         number: roomNum,
         area: (Math.random() * 40 + 60).toFixed(2),
         status,
         type: r % 4 === 0 ? '大套间' : '标准间',
-        isManaged: Math.random() > 0.3 // Simulate that landlord owns ~70% of rooms
+        isManaged: Math.random() > 0.3,
+        // Mock lease data
+        rent: Math.floor(Math.random() * 3000 + 2000),
+        deposit: Math.floor(Math.random() * 3000 + 2000),
+        paymentType: Math.random() > 0.5 ? '押一付一' : '押一付三',
+        checkInDate: isOccupied ? '2023-10-15' : undefined,
+        leaseEndDate: isOccupied ? '2024-10-14' : undefined,
+        paymentStatus: isOccupied ? (random < 0.4 ? 'normal' : random < 0.6 ? 'near_due' : 'overdue') : undefined,
+        tenantName: isOccupied ? '张大壮' : undefined,
+        tenantPhone: isOccupied ? '13800138000' : undefined,
+        tenantIdCard: isOccupied ? '330421199001011234' : undefined,
+        tenantGender: isOccupied ? (Math.random() > 0.5 ? 'male' : 'female') : undefined,
+        hasPets: isOccupied ? Math.random() > 0.8 : false,
+        remark: '租客比较爱干净，按时交租。',
+        smsReminder: true
       })
     }
     floors.push({ floor: f, rooms: floorRooms })
@@ -61,8 +93,15 @@ const currentRooms = computed(() => buildingData.value[selectedBlock.value])
 
 const getStatusClass = (room: Room) => {
   if (!room.isManaged) return 'status-unmanaged'
+  if (room.status === 'occupied') {
+    return {
+      'status-occupied': true,
+      'pay-normal': room.paymentStatus === 'normal',
+      'pay-warning': room.paymentStatus === 'near_due',
+      'pay-danger': room.paymentStatus === 'overdue'
+    }
+  }
   return {
-    'status-occupied': room.status === 'occupied',
     'status-vacant': room.status === 'vacant',
     'status-maintenance': room.status === 'maintenance'
   }
@@ -138,16 +177,144 @@ const exitEditMode = () => {
 const blockStats = computed(() => {
   const data = currentRooms.value
   let occupied = 0, vacant = 0, maintenance = 0, unmanaged = 0
+  let payNormal = 0, payWarning = 0, payDanger = 0
   data.forEach(f => {
     f.rooms.forEach(r => {
       if (!r.isManaged) unmanaged++
-      else if (r.status === 'occupied') occupied++
+      else if (r.status === 'occupied') {
+        occupied++
+        if (r.paymentStatus === 'normal') payNormal++
+        else if (r.paymentStatus === 'near_due') payWarning++
+        else payDanger++
+      }
       else if (r.status === 'vacant') vacant++
       else maintenance++
     })
   })
-  return { occupied, vacant, maintenance, unmanaged, total: 560 }
+  return { occupied, vacant, maintenance, unmanaged, payNormal, payWarning, payDanger, total: 560 }
 })
+
+// Payment Logic
+const isPaymentModalOpen = ref(false)
+const paymentAmount = ref(0)
+const paymentNote = ref('')
+const drawerWidth = ref(420)
+
+const startResize = (e: MouseEvent) => {
+  const startX = e.clientX
+  const startWidth = drawerWidth.value
+  
+  const onMouseMove = (moveEvent: MouseEvent) => {
+    const diff = startX - moveEvent.clientX
+    drawerWidth.value = Math.max(380, Math.min(1000, startWidth + diff))
+  }
+  
+  const onMouseUp = () => {
+    document.removeEventListener('mousemove', onMouseMove)
+    document.removeEventListener('mouseup', onMouseUp)
+    document.body.style.cursor = 'default'
+  }
+  
+  document.addEventListener('mousemove', onMouseMove)
+  document.addEventListener('mouseup', onMouseUp)
+  document.body.style.cursor = 'ew-resize'
+}
+
+const handleOverlayClick = () => {
+  // If drawer is stretched (width > 450), ignore overlay clicks to prevent accidental close
+  if (drawerWidth.value > 450) {
+    return
+  }
+  isDrawerOpen.value = false
+}
+
+const openPayment = () => {
+  paymentAmount.value = selectedRoom.value.rent || 0
+  paymentNote.value = ''
+  isPaymentModalOpen.value = true
+}
+
+const confirmPayment = () => {
+  if (paymentAmount.value >= (selectedRoom.value.rent || 0)) {
+    selectedRoom.value.paymentStatus = 'normal'
+  } else {
+    selectedRoom.value.paymentStatus = 'near_due' // Still owes some
+  }
+  
+  // Sync back to buildingData
+  const block = buildingData.value[selectedBlock.value]
+  for (const floor of block) {
+    const roomIndex = floor.rooms.findIndex(r => r.id === selectedRoom.value.id)
+    if (roomIndex !== -1) {
+      floor.rooms[roomIndex] = { ...selectedRoom.value }
+      break
+    }
+  }
+  
+  isPaymentModalOpen.value = false
+  alert(`已确认收租 ¥${paymentAmount.value}。${paymentAmount.value < selectedRoom.value.rent ? '金额不足，已标记为待继续缴费。' : '本期已清。'}`)
+}
+
+// Template Logic
+const isTemplateModalOpen = ref(false)
+const propertyTemplates = ref([
+  {
+    id: '1',
+    name: '精装大一居标准模板',
+    type: '一室一厅',
+    area: '45㎡',
+    rent: 3200,
+    deposit: 3200,
+    paymentType: '押一付一',
+    amenities: ['空调', '洗衣机', '冰箱', '热水器', '宽带', '床', '沙发']
+  },
+  {
+    id: '2',
+    name: '简约单间经济模板',
+    type: '单间',
+    area: '25㎡',
+    rent: 1800,
+    deposit: 1800,
+    paymentType: '押一付一',
+    amenities: ['空调', '洗衣机', '热水器', '床']
+  },
+  {
+    id: '3',
+    name: '豪华三居室模板',
+    type: '三室两厅',
+    area: '120㎡',
+    rent: 8500,
+    deposit: 17000,
+    paymentType: '押二付一',
+    amenities: ['全免家电', '智能门锁', '浴缸', '阳台', '车位']
+  }
+])
+
+const applyTemplate = (tpl: any) => {
+  tempRoomData.value.type = tpl.type
+  tempRoomData.value.area = tpl.area
+  tempRoomData.value.rent = tpl.rent
+  tempRoomData.value.deposit = tpl.deposit
+  tempRoomData.value.paymentType = tpl.paymentType
+  tempRoomData.value.amenities = [...tpl.amenities]
+  isTemplateModalOpen.value = false
+  alert(`已应用模板 "${tpl.name}"`)
+}
+
+const toggleSmsQuick = () => {
+  if (!selectedRoom.value) return
+  selectedRoom.value.smsReminder = !selectedRoom.value.smsReminder
+  
+  // Sync to source data
+  const block = buildingData.value[selectedBlock.value]
+  for (const floor of block) {
+    const roomIndex = floor.rooms.findIndex(r => r.id === selectedRoom.value.id)
+    if (roomIndex !== -1) {
+      floor.rooms[roomIndex].smsReminder = selectedRoom.value.smsReminder
+      break
+    }
+  }
+}
 </script>
 
 <template>
@@ -185,12 +352,13 @@ const blockStats = computed(() => {
       </div>
       
       <div class="legend-stats glass">
-        <div class="stat-item"><span class="dot occupied"></span> 已租 {{ blockStats.occupied }}</div>
+        <div class="stat-item"><span class="dot normal"></span> 履约中 {{ blockStats.payNormal }}</div>
+        <div class="stat-item"><span class="dot warning"></span> 待缴费 {{ blockStats.payWarning }}</div>
+        <div class="stat-item"><span class="dot overdue"></span> 已逾期 {{ blockStats.payDanger }}</div>
+        <div class="divider-v"></div>
         <div class="stat-item"><span class="dot vacant"></span> 待租 {{ blockStats.vacant }}</div>
         <div class="stat-item"><span class="dot maintenance"></span> 维修 {{ blockStats.maintenance }}</div>
         <div class="stat-item unmanaged"><span class="dot unmanaged"></span> 非业主 {{ blockStats.unmanaged }}</div>
-        <div class="divider-v"></div>
-        <div class="stat-total">总计 560</div>
       </div>
     </div>
 
@@ -232,89 +400,336 @@ const blockStats = computed(() => {
     </div>
 
     <!-- Room Detail Drawer (Reuse) -->
-    <div v-if="isDrawerOpen" class="drawer-overlay" @click="isDrawerOpen = false">
-      <div class="detail-drawer glass animate-slide-left" @click.stop>
+    <div v-if="isDrawerOpen" class="drawer-overlay" @click="handleOverlayClick">
+      <div 
+        class="detail-drawer glass animate-slide-left" 
+        :style="{ width: drawerWidth + 'px' }"
+        @click.stop
+      >
+        <div class="resize-info" v-if="drawerWidth > 450">
+          已进入固定模式（点击遮罩层不再关闭）
+        </div>
+        <div class="resize-handle" @mousedown="startResize"></div>
         <div class="drawer-header">
-          <div class="room-tag" :class="getStatusClass(selectedRoom)">
-            {{ selectedRoom.number }}室
+          <div class="room-title">
+            <span class="room-num-badge" :class="getStatusClass(selectedRoom)">{{ selectedRoom.number }}</span>
+            <div class="title-meta">
+              <h3>房源详情</h3>
+              <span class="location-tag">{{ selectedBlock }}号楼 · {{ selectedRoom.type }}</span>
+            </div>
           </div>
           <button class="close-btn" @click="isDrawerOpen = false"><X :size="20" /></button>
         </div>
+
         <div class="drawer-body">
+          <button v-if="!isDrawerEditing && selectedRoom.status === 'occupied'" class="pay-rent-btn top-action" @click="openPayment">
+            <Wallet :size="16" /> 登记本月收租
+          </button>
+
+          <!-- View Mode -->
           <template v-if="!isDrawerEditing">
-            <section class="info-section">
-              <div class="section-header">
-                <h3 class="section-title">房源信息</h3>
-                <button class="text-edit-btn" @click="startEditing"><Edit3 :size="14" /> 编辑</button>
+            <!-- Stats Row -->
+            <div class="drawer-stats-grid">
+              <div class="d-stat">
+                <span class="d-label">月租金</span>
+                <span class="d-val highlight">¥{{ selectedRoom.rent?.toLocaleString() }}</span>
               </div>
-              <div class="info-grid">
-                <div class="info-item"><span class="label">面积</span><span class="val">{{ selectedRoom.area }} ㎡</span></div>
-                <div class="info-item">
-                  <span class="label">所属楼栋</span>
-                  <span class="val">{{ selectedBlock }}号楼</span>
+              <div class="d-stat">
+                <span class="d-label">当前状态</span>
+                <span class="d-val" :class="selectedRoom.paymentStatus">
+                  {{ selectedRoom.paymentStatus === 'normal' ? '正常履约' : selectedRoom.paymentStatus === 'near_due' ? '待缴费' : '已逾期' }}
+                </span>
+              </div>
+            </div>
+
+            <section class="info-group">
+              <div class="group-header">
+                <h4>租约信息</h4>
+                <button class="edit-link" @click="startEditing"><Edit3 :size="14" /> 编辑</button>
+              </div>
+              <div class="kv-list">
+                <div class="kv-item">
+                  <span class="k">租赁模式</span>
+                  <span class="v">{{ selectedRoom.paymentType || '未设置' }}</span>
                 </div>
-                <div class="info-item"><span class="label">户型</span><span class="val">{{ selectedRoom.type }}</span></div>
-                <div class="info-item"><span class="label">状态</span><span class="val">{{ selectedRoom.isManaged ? '托管中' : '非业主' }}</span></div>
+                <div class="kv-item">
+                  <span class="k">起租日期</span>
+                  <span class="v">{{ selectedRoom.checkInDate || '待入驻' }}</span>
+                </div>
+                <div class="kv-item">
+                  <span class="k">到期日期</span>
+                  <span class="v" :class="{ 'warning': true }">{{ selectedRoom.leaseEndDate || '待定' }}</span>
+                </div>
+                <div class="kv-item">
+                  <span class="k">押金金额</span>
+                  <span class="v">¥{{ selectedRoom.deposit?.toLocaleString() || '0' }}</span>
+                </div>
               </div>
             </section>
             
-            <template v-if="selectedRoom.isManaged && selectedRoom.status === 'occupied'">
-               <section class="info-section">
-                <h3 class="section-title">当前租客</h3>
-                <div class="tenant-mini-card">
-                  <div class="avatar">张</div>
-                  <div class="t-info">
-                    <div class="t-name">张大壮</div>
-                    <div class="t-phone"><Phone :size="12" /> 138-****-1234</div>
+            <section class="info-group" v-if="selectedRoom.status === 'occupied'">
+              <div class="group-header">
+                <h4>租客信息</h4>
+              </div>
+              <div class="tenant-card-rich">
+                <div class="t-main">
+                  <div class="t-avatar" :class="selectedRoom.tenantGender">{{ selectedRoom.tenantName?.charAt(0) || '?' }}</div>
+                  <div class="t-details">
+                    <span class="t-name">
+                      {{ selectedRoom.tenantName || '未知租客' }}
+                      <span class="gender-tag" :class="selectedRoom.tenantGender">
+                        {{ selectedRoom.tenantGender === 'male' ? '♂' : '♀' }}
+                      </span>
+                    </span>
+                    <span class="t-tag">主承租人 · {{ selectedRoom.hasPets ? '有宠物' : '无宠物' }}</span>
+                  </div>
+                </div>
+                <div class="t-contact">
+                  <a :href="'tel:' + selectedRoom.tenantPhone" class="contact-btn">
+                    <Phone :size="14" /> {{ selectedRoom.tenantPhone || '暂无号码' }}
+                  </a>
+                  <span class="t-identity">身份证 {{ selectedRoom.tenantIdCard || '未登记' }}</span>
+                </div>
+                <!-- Quick SMS Toggle -->
+                <div class="sms-quick-toggle" :class="{ active: selectedRoom.smsReminder }" @click="toggleSmsQuick">
+                  <div class="sms-label">
+                    <span class="dot-indicator" v-if="selectedRoom.smsReminder"></span>
+                    到期短信提醒
+                  </div>
+                  <div class="mini-switch" :class="{ on: selectedRoom.smsReminder }"></div>
+                </div>
+              </div>
+            </section>
+
+            <section class="info-group">
+              <div class="group-header">
+                <h4>房源备注</h4>
+              </div>
+              <div class="remark-content">
+                {{ selectedRoom.remark || '暂无备注信息' }}
+              </div>
+            </section>
+
+            <section class="info-group">
+              <div class="group-header">
+                <h4>房源配套</h4>
+              </div>
+              <div class="amenities-grid">
+                <div class="amen-item active">空调</div>
+                <div class="amen-item active">洗衣机</div>
+                <div class="amen-item active">热水器</div>
+                <div class="amen-item active">宽带</div>
+                <div class="amen-item">冰箱</div>
+              </div>
+            </section>
+          </template>
+
+          <!-- Edit Mode -->
+          <template v-else>
+            <div class="edit-scroll-area">
+              <section class="edit-section">
+                <h4 class="edit-title">租客管理</h4>
+                <div class="input-wrap">
+                  <label>姓名</label>
+                  <input v-model="tempRoomData.tenantName" type="text" placeholder="录入租客姓名" />
+                </div>
+                <div class="edit-grid mt-3">
+                  <div class="input-wrap">
+                    <label>性别</label>
+                    <div class="radio-pill-group">
+                      <button :class="{ active: tempRoomData.tenantGender === 'male' }" @click="tempRoomData.tenantGender = 'male'">男</button>
+                      <button :class="{ active: tempRoomData.tenantGender === 'female' }" @click="tempRoomData.tenantGender = 'female'">女</button>
+                    </div>
+                  </div>
+                  <div class="input-wrap">
+                    <label>宠物</label>
+                    <div class="radio-pill-group">
+                      <button :class="{ active: tempRoomData.hasPets }" @click="tempRoomData.hasPets = true">有</button>
+                      <button :class="{ active: !tempRoomData.hasPets }" @click="tempRoomData.hasPets = false">无</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="edit-grid mt-3">
+                  <div class="input-wrap">
+                    <label>手机号</label>
+                    <input v-model="tempRoomData.tenantPhone" type="tel" placeholder="138..." />
+                  </div>
+                  <div class="input-wrap">
+                    <label>身份证号</label>
+                    <input v-model="tempRoomData.tenantIdCard" type="text" placeholder="身份证号" />
                   </div>
                 </div>
               </section>
-            </template>
-          </template>
 
-          <template v-else>
-            <section class="info-section">
-              <h3 class="section-title">维护房源信息</h3>
-              <div class="edit-form">
-                <div class="form-group">
-                  <label>房号</label>
-                  <input v-model="tempRoomData.number" type="text" class="form-input" />
+              <section class="edit-section">
+                <div class="edit-header-row">
+                  <h4 class="edit-title">房源配置</h4>
+                  <button class="template-apply-btn" @click="isTemplateModalOpen = true">
+                    <Copy :size="14" /> 从模板导入
+                  </button>
                 </div>
-                <div class="form-group">
-                  <label>面积 (㎡)</label>
-                  <input v-model="tempRoomData.area" type="number" step="0.01" class="form-input" />
+                <div class="edit-grid">
+                  <div class="input-wrap">
+                    <label>房号</label>
+                    <input v-model="tempRoomData.number" type="text" />
+                  </div>
+                  <div class="input-wrap">
+                    <label>面积 (㎡)</label>
+                    <input v-model="tempRoomData.area" type="number" step="0.01" />
+                  </div>
                 </div>
-                <div class="form-group">
-                  <label>户型</label>
-                  <select v-model="tempRoomData.type" class="form-select">
+                <div class="input-wrap mt-3">
+                  <label>房屋类型</label>
+                  <select v-model="tempRoomData.type">
                     <option value="标准间">标准间</option>
                     <option value="大套间">大套间</option>
                     <option value="三室两厅">三室两厅</option>
                   </select>
                 </div>
-                <div class="form-group">
-                  <label>当前状态</label>
-                  <div class="status-options">
+              </section>
+
+              <section class="edit-section">
+                <h4 class="edit-title">商务条款</h4>
+                <div class="edit-grid">
+                  <div class="input-wrap">
+                    <label>月租金 (元)</label>
+                    <input v-model="tempRoomData.rent" type="number" />
+                  </div>
+                  <div class="input-wrap">
+                    <label>押金 (元)</label>
+                    <input v-model="tempRoomData.deposit" type="number" />
+                  </div>
+                </div>
+                <div class="input-wrap mt-3">
+                  <label>支付方式</label>
+                  <div class="radio-pill-group">
                     <button 
-                      v-for="s in (['vacant', 'occupied', 'maintenance'] as const)" 
-                      :key="s"
-                      class="status-opt-btn"
-                      :class="[{ active: tempRoomData.status === s }, s]"
-                      @click="tempRoomData.status = s"
+                      v-for="p in ['押一付一', '押一付三', '半年付', '年付']" 
+                      :key="p"
+                      :class="{ active: tempRoomData.paymentType === p }"
+                      @click="tempRoomData.paymentType = p"
                     >
-                      {{ s === 'vacant' ? '待租' : s === 'occupied' ? '已租' : '维修' }}
+                      {{ p }}
                     </button>
                   </div>
                 </div>
-              </div>
-            </section>
+                <div class="input-wrap mt-3">
+                  <div class="switch-row" @click="tempRoomData.smsReminder = !tempRoomData.smsReminder">
+                    <label>到期短信自动提醒</label>
+                    <div class="switch" :class="{ on: tempRoomData.smsReminder }"></div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="edit-section">
+                <h4 class="edit-title">备注说明</h4>
+                <div class="input-wrap">
+                  <textarea v-model="tempRoomData.remark" class="full-remark" placeholder="录入关于房源或租客的备注信息..."></textarea>
+                </div>
+              </section>
+
+              <section class="edit-section">
+                <h4 class="edit-title">租期设置</h4>
+                <div class="edit-grid">
+                  <div class="input-wrap">
+                    <label>起租日期</label>
+                    <input v-model="tempRoomData.checkInDate" type="date" />
+                  </div>
+                  <div class="input-wrap">
+                    <label>到期日期</label>
+                    <input v-model="tempRoomData.leaseEndDate" type="date" />
+                  </div>
+                </div>
+              </section>
+
+              <section class="edit-section">
+                <h4 class="edit-title">状态更新</h4>
+                <div class="status-selector-grid">
+                  <button 
+                    v-for="s in (['vacant', 'occupied', 'maintenance'] as const)" 
+                    :key="s"
+                    class="status-pill"
+                    :class="[s, { active: tempRoomData.status === s }]"
+                    @click="tempRoomData.status = s"
+                  >
+                    {{ s === 'vacant' ? '待租' : s === 'occupied' ? '已租' : '维修' }}
+                  </button>
+                </div>
+              </section>
+            </div>
             
-            <div class="drawer-footer">
-              <button class="cancel-btn" @click="isDrawerEditing = false">取消</button>
-              <button class="save-btn" @click="saveRoomDetail">保存修改</button>
+            <div class="drawer-footer-sticky">
+              <button class="btn-cancel" @click="isDrawerEditing = false">丢弃更改</button>
+              <button class="btn-save" @click="saveRoomDetail">确认保存</button>
             </div>
           </template>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Template Selection Modal -->
+  <div v-if="isTemplateModalOpen" class="modal-overlay" @click="isTemplateModalOpen = false">
+    <div class="template-select-dialog glass card-animate-in" @click.stop>
+      <div class="modal-header">
+        <h3>选择配置模板</h3>
+        <button class="close-btn" @click="isTemplateModalOpen = false"><X :size="18" /></button>
+      </div>
+      <div class="template-list-compact">
+        <div 
+          v-for="tpl in propertyTemplates" 
+          :key="tpl.id" 
+          class="tpl-item-compact"
+          @click="applyTemplate(tpl)"
+        >
+          <div class="tpl-item-main">
+            <span class="tpl-name-compact">{{ tpl.name }}</span>
+            <span class="tpl-meta-compact">{{ tpl.type }} | ¥{{ tpl.rent }}/月</span>
+          </div>
+          <ChevronRight :size="16" color="var(--text-muted)" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Payment Dialog -->
+  <div v-if="isPaymentModalOpen" class="payment-modal-overlay" @click="isPaymentModalOpen = false">
+    <div class="payment-dialog glass card-animate-in" @click.stop>
+      <div class="dialog-header">
+        <h3>确认收租记录</h3>
+        <button @click="isPaymentModalOpen = false"><X :size="18"/></button>
+      </div>
+      <div class="dialog-body">
+        <div class="payment-summary">
+          <div class="summary-item">
+            <span class="label">本月应收</span>
+            <span class="val">¥{{ selectedRoom.rent }}</span>
+          </div>
+          <div class="status-indicator" :class="paymentAmount >= selectedRoom.rent ? 'full' : 'partial'">
+            {{ paymentAmount >= selectedRoom.rent ? '足额缴纳' : '部分补缴' }}
+          </div>
+        </div>
+        
+        <div class="form-item">
+          <label>实收金额 (元)</label>
+          <div class="amount-input-group">
+            <span class="currency">¥</span>
+            <input v-model="paymentAmount" type="number" step="0.01" />
+          </div>
+          <div class="preset-amounts">
+            <button @click="paymentAmount = selectedRoom.rent">足额</button>
+            <button @click="paymentAmount = Math.floor(selectedRoom.rent / 2)">50%</button>
+          </div>
+        </div>
+        
+        <div class="form-item mt-3">
+          <label>备注</label>
+          <textarea v-model="paymentNote" placeholder="可选填，如：微信转账、现金等"></textarea>
+        </div>
+      </div>
+      <div class="dialog-footer">
+        <button class="btn-cancel-plain" @click="isPaymentModalOpen = false">取消</button>
+        <button class="btn-confirm-pay" @click="confirmPayment">确认录入</button>
       </div>
     </div>
   </div>
@@ -457,10 +872,12 @@ const blockStats = computed(() => {
 .stat-item.unmanaged { color: var(--text-muted); }
 
 .dot { width: 8px; height: 8px; border-radius: 2px; }
-.dot.occupied { background: #475569; }
-.dot.vacant { background: #10b981; }
-.dot.maintenance { background: #ef4444; }
-.dot.unmanaged { background: #1e293b; border: 1px solid #334155; }
+.dot.normal { background: #10b981; }
+.dot.warning { background: #f59e0b; }
+.dot.overdue { background: #ef4444; }
+.dot.vacant { background: transparent; border: 1px dashed #475569; }
+.dot.maintenance { background: #7f1d1d; }
+.dot.unmanaged { background: #0f172a; border: 1px solid #1e293b; }
 
 .grid-container-wrapper {
   border-radius: var(--radius-lg);
@@ -534,14 +951,18 @@ const blockStats = computed(() => {
   transition: all 0.2s;
 }
 
-.status-occupied { background: #475569; color: #cbd5e1; }
-.status-vacant { background: #10b981; color: white; }
-.status-maintenance { background: #ef4444; color: white; }
+.status-occupied { background: #334155; color: #cbd5e1; }
+.pay-normal { background: #10b981; color: white; border: 1px solid rgba(255,255,255,0.1); }
+.pay-warning { background: #f59e0b; color: white; border: 1px solid rgba(255,255,255,0.1); }
+.pay-danger { background: #ef4444; color: white; border: 1px solid rgba(255,255,255,0.1); }
+
+.status-vacant { background: rgba(255,255,255,0.05); color: #94a3b8; border: 1px dashed #475569; }
+.status-maintenance { background: #7f1d1d; color: #fecaca; }
 .status-unmanaged { 
-  background: #111827; 
-  color: #374151; 
-  border: 1px solid #1f2937;
-  opacity: 0.6;
+  background: #0f172a; 
+  color: #1e293b; 
+  border: 1px solid #1e293b;
+  opacity: 0.4;
 }
 
 .room-cell.selected {
@@ -587,97 +1008,486 @@ const blockStats = computed(() => {
 
 .glass { background: rgba(17, 17, 20, 0.98); backdrop-filter: blur(20px); }
 .drawer-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000; }
-.detail-drawer { position: absolute; top: 0; right: 0; width: 360px; height: 100%; background: var(--bg-sidebar); padding: 2rem; display: flex; flex-direction: column; }
+/* Drawer Styles Upgraded */
+.detail-drawer { 
+  position: absolute; 
+  top: 0; 
+  right: 0; 
+  height: 100%; 
+  background: #111114; 
+  display: flex; 
+  flex-direction: column;
+  box-shadow: -10px 0 30px rgba(0,0,0,0.3);
+  min-width: 380px;
+}
 
-.section-header {
+.resize-handle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 6px;
+  height: 100%;
+  cursor: ew-resize;
+  background: transparent;
+  transition: background 0.2s;
+  z-index: 10;
+}
+
+.resize-handle:hover {
+  background: var(--accent-primary);
+}
+
+.resize-info {
+  position: absolute;
+  top: 10px;
+  left: 20px;
+  font-size: 0.65rem;
+  background: var(--accent-primary);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 700;
+  opacity: 0.8;
+  pointer-events: none;
+  z-index: 15;
+}
+
+.drawer-header {
+  padding: 1.5rem 2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-color);
 }
 
-.text-edit-btn {
-  font-size: 0.75rem;
-  color: var(--accent-primary);
+.room-title {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  font-weight: 600;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-}
-
-.text-edit-btn:hover {
-  background: rgba(99, 102, 241, 0.1);
-}
-
-.edit-form {
-  display: flex;
-  flex-direction: column;
   gap: 1.25rem;
 }
 
-.form-group {
+.room-num-badge {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+
+.title-meta h3 { font-size: 1rem; margin-bottom: 2px; }
+.location-tag { font-size: 0.75rem; color: var(--text-muted); }
+
+.drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem 2rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 2.5rem;
 }
 
-.form-group label {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  font-weight: 600;
-}
-
-.form-input, .form-select {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 0.75rem;
-  color: white;
-  font-size: 0.9rem;
-  outline: none;
-}
-
-.status-options {
+.drawer-stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.5rem;
-}
-
-.status-opt-btn {
-  padding: 0.5rem;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-align: center;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid transparent;
-  color: var(--text-muted);
-}
-
-.status-opt-btn.active.vacant { background: var(--accent-success); color: white; }
-.status-opt-btn.active.occupied { background: #475569; color: white; }
-.status-opt-btn.active.maintenance { background: var(--accent-danger); color: white; }
-
-.drawer-footer {
-  margin-top: auto;
-  display: flex;
+  grid-template-columns: 1fr 1fr;
   gap: 1rem;
-  padding-top: 2rem;
+  background: rgba(255,255,255,0.02);
+  padding: 1.5rem;
+  border-radius: 16px;
+  border: 1px solid var(--glass-border);
 }
 
-.cancel-btn {
-  flex: 1;
-  padding: 0.75rem;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-secondary);
+.d-stat { display: flex; flex-direction: column; gap: 4px; }
+.d-label { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+.d-val { font-size: 1.1rem; font-weight: 700; color: #fff; }
+.d-val.highlight { color: var(--accent-success); font-family: 'Outfit', sans-serif; font-size: 1.4rem; }
+.d-val.normal { color: #10b981; }
+.d-val.near_due { color: #f59e0b; }
+.d-val.overdue { color: #ef4444; }
+
+.info-group { display: flex; flex-direction: column; gap: 1.25rem; }
+.group-header { display: flex; justify-content: space-between; align-items: center; }
+.group-header h4 { font-size: 0.9rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
+
+.edit-link { font-size: 0.75rem; color: var(--accent-primary); display: flex; align-items: center; gap: 4px; font-weight: 600; }
+
+.kv-list { display: flex; flex-direction: column; gap: 1rem; }
+.kv-item { display: flex; justify-content: space-between; align-items: center; }
+.k { font-size: 0.85rem; color: var(--text-muted); }
+.v { font-size: 0.85rem; font-weight: 600; color: var(--text-primary); }
+.v.warning { color: #f87171; }
+
+.tenant-card-rich {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.05) 100%);
+  padding: 1.5rem;
+  border-radius: 16px;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.t-main { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
+.t-avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--accent-primary); display: flex; align-items: center; justify-content: center; font-weight: 800; }
+.t-avatar.female { background: #ec4899; }
+.t-avatar.male { background: #3b82f6; }
+.t-details { display: flex; flex-direction: column; }
+.t-name { font-weight: 700; font-size: 1rem; display: flex; align-items: center; gap: 8px; }
+.gender-tag { font-size: 0.8rem; font-weight: 800; }
+.gender-tag.male { color: #3b82f6; }
+.gender-tag.female { color: #ec4899; }
+.t-tag { font-size: 0.65rem; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; color: var(--text-secondary); width: fit-content; margin-top: 4px; }
+
+.t-contact { display: flex; flex-direction: column; gap: 8px; }
+.contact-btn { background: #fff; color: #000; font-size: 0.8rem; font-weight: 700; padding: 0.6rem; border-radius: 10px; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; }
+.t-identity { font-size: 0.75rem; color: var(--text-muted); text-align: center; font-family: 'Courier New', Courier, monospace; letter-spacing: 1px; }
+
+.sms-quick-toggle {
+  margin-top: 1.25rem;
+  padding: 1rem 1.25rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.2s;
+}
+
+.sms-quick-toggle:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(99, 102, 241, 0.2);
+}
+
+.sms-quick-toggle.active {
+  background: rgba(99, 102, 241, 0.08);
+  border-color: rgba(99, 102, 241, 0.3);
+}
+
+.sms-label {
+  font-size: 0.85rem;
   font-weight: 600;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.save-btn {
-  flex: 2;
+.sms-quick-toggle.active .sms-label {
+  color: #fff;
+}
+
+.dot-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  box-shadow: 0 0 10px var(--accent-primary);
+}
+
+.mini-switch {
+  width: 36px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mini-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.mini-switch.on { background: var(--accent-primary); }
+.mini-switch.on::after { left: 18px; }
+
+.remark-content {
+  background: rgba(255,255,255,0.02);
+  padding: 1.25rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  white-space: pre-wrap;
+}
+
+.pay-rent-btn {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #fff;
+  padding: 1rem;
+  border-radius: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+  transition: transform 0.2s;
+}
+
+.pay-rent-btn.top-action {
+  margin-bottom: -1rem;
+}
+
+.pay-rent-btn:hover { transform: translateY(-2px); }
+
+.amenities-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 8px; }
+.amen-item { font-size: 0.7rem; padding: 6px; text-align: center; border-radius: 6px; background: rgba(255,255,255,0.03); color: var(--text-muted); border: 1px solid var(--border-color); }
+.amen-item.active { border-color: rgba(99, 102, 241, 0.3); color: var(--accent-primary); background: rgba(99, 102, 241, 0.05); }
+
+/* Edit Mode Styles */
+.edit-scroll-area { display: flex; flex-direction: column; gap: 2rem; }
+.edit-section { display: flex; flex-direction: column; gap: 1rem; }
+.edit-title { font-size: 0.85rem; font-weight: 800; color: var(--accent-primary); border-left: 3px solid var(--accent-primary); padding-left: 10px; }
+
+.edit-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.template-apply-btn {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--accent-primary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(99, 102, 241, 0.05);
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(99, 102, 241, 0.2);
+}
+.template-apply-btn:hover { background: rgba(99, 102, 241, 0.1); }
+
+.edit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.input-wrap { display: flex; flex-direction: column; gap: 6px; }
+.input-wrap label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; }
+.input-wrap input, .input-wrap select, .input-wrap textarea { 
+  background: rgba(255, 255, 255, 0.03); 
+  border: 1px solid rgba(255, 255, 255, 0.1); 
+  padding: 0.85rem 1rem; 
+  border-radius: 12px; 
+  color: #fff; 
+  font-size: 0.95rem; 
+  outline: none; 
+  transition: all 0.2s;
+  width: 100%;
+}
+.input-wrap input:focus, .input-wrap select:focus, .input-wrap textarea:focus { 
+  border-color: var(--accent-primary); 
+  background: rgba(99, 102, 241, 0.06);
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+}
+
+.input-wrap textarea {
+  font-family: inherit;
+  line-height: 1.6;
+}
+
+.mt-3 { margin-top: 0.75rem; }
+
+.radio-pill-group { display: flex; flex-wrap: wrap; gap: 8px; }
+.radio-pill-group button { font-size: 0.75rem; padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border-color); color: var(--text-muted); transition: all 0.2s; }
+.radio-pill-group button.active { background: var(--accent-primary); color: #fff; border-color: var(--accent-primary); }
+
+.status-selector-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.status-pill { padding: 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; background: rgba(255,255,255,0.03); border: 1px solid transparent; color: var(--text-muted); }
+.status-pill.active.vacant { background: var(--accent-success); color: #fff; }
+.status-pill.active.occupied { background: #475569; color: #fff; }
+.status-pill.active.maintenance { background: var(--accent-danger); color: #fff; }
+
+.switch-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: rgba(255,255,255,0.03);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.switch {
+  width: 44px;
+  height: 24px;
+  background: #334155;
+  border-radius: 12px;
+  position: relative;
+  transition: all 0.3s;
+}
+
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  border-radius: 50%;
+  transition: all 0.3s;
+}
+
+.switch.on { background: var(--accent-primary); }
+.switch.on::after { left: 22px; }
+
+.full-remark {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.drawer-footer-sticky { margin-top: auto; padding-top: 2rem; display: flex; gap: 1rem; position: sticky; bottom: 0; background: #111114; }
+.btn-cancel { flex: 1; padding: 1rem; border-radius: 12px; background: rgba(255,255,255,0.05); color: var(--text-secondary); font-weight: 700; }
+.btn-save { flex: 2; padding: 1rem; border-radius: 12px; background: var(--accent-primary); color: #fff; font-weight: 700; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3); }
+
+.close-btn { color: var(--text-muted); transition: color 0.2s; }
+.close-btn:hover { color: #fff; }
+
+/* Payment Modal */
+.payment-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(4px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.payment-dialog {
+  width: 360px;
+  background: #18181b;
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.dialog-header {
+  padding: 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.dialog-body { padding: 1.5rem; }
+
+.payment-summary {
+  background: rgba(255,255,255,0.03);
+  padding: 1rem;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.summary-item .label { font-size: 0.7rem; color: var(--text-muted); display: block; }
+.summary-item .val { font-size: 1.25rem; font-weight: 800; color: #fff; }
+
+.status-indicator { font-size: 0.7rem; font-weight: 800; padding: 4px 8px; border-radius: 6px; }
+.status-indicator.full { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+.status-indicator.partial { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+
+.amount-input-group {
+  display: flex;
+  align-items: center;
+  background: rgba(255,255,255,0.05);
+  border: 2px solid var(--border-color);
+  border-radius: 12px;
+  padding: 0 1rem;
+  margin-top: 8px;
+}
+.amount-input-group:focus-within { border-color: var(--accent-primary); }
+.currency { font-weight: 700; color: var(--text-muted); }
+.amount-input-group input { background: transparent; border: none; outline: none; padding: 0.8rem; color: #fff; font-size: 1.1rem; width: 100%; font-weight: 700; }
+
+.preset-amounts { display: flex; gap: 8px; margin-top: 10px; }
+.preset-amounts button { font-size: 0.7rem; background: rgba(255,255,255,0.05); color: var(--text-secondary); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-color); }
+
+.dialog-body textarea {
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0.8rem;
+  color: #fff;
+  resize: none;
+  height: 80px;
+  margin-top: 8px;
+}
+
+.dialog-footer { padding: 1.25rem; display: flex; gap: 10px; background: rgba(0,0,0,0.2); }
+.btn-cancel-plain { flex: 1; color: var(--text-muted); font-weight: 600; font-size: 0.9rem; }
+.btn-confirm-pay { flex: 2; background: var(--accent-primary); color: #fff; padding: 0.8rem; border-radius: 10px; font-weight: 700; }
+
+.card-animate-in {
+  animation: cardScaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes cardScaleIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+
+/* Template Modal Compact */
+.template-select-dialog {
+  width: 400px;
+  border-radius: 24px;
+  background: #111114;
+  border: 1px solid var(--glass-border);
+  overflow: hidden;
+}
+
+.template-list-compact {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tpl-item-compact {
+  padding: 1.25rem;
+  background: rgba(255,255,255,0.02);
+  border-radius: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+
+.tpl-item-compact:hover {
+  background: rgba(255,255,255,0.05);
+  border-color: var(--accent-primary);
+}
+
+.tpl-item-main { display: flex; flex-direction: column; gap: 4px; }
+.tpl-name-compact { font-weight: 700; font-size: 0.95rem; color: #fff; }
+.tpl-meta-compact { font-size: 0.75rem; color: var(--text-muted); }
+
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(8px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Scrollbar Style */

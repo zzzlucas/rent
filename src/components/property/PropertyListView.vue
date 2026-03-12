@@ -1,116 +1,331 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { Search, Filter, Plus, List, LayoutGrid, UploadCloud } from 'lucide-vue-next'
-import PropertyCard from './PropertyCard.vue'
-import DataImportModal from './DataImportModal.vue'
+import { 
+  Search, 
+  Filter, 
+  Plus, 
+  Download, 
+  Edit3, 
+  Trash2, 
+  ChevronRight,
+  TrendingUp,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  Copy
+} from 'lucide-vue-next'
 
-const props = defineProps<{
-  properties: any[]
-}>()
+// Mock Data enriched for Ledger view
+const mockProperties = ref([
+  { id: '1', title: 'A号楼 101', type: '一室一厅', area: 45, rent: 3200, status: 'occupied', tenant: '张大壮', phone: '138***000', leaseEnd: '2024-10-15', progress: 85 },
+  { id: '2', title: 'A号楼 102', type: '精装单间', area: 25, rent: 1800, status: 'vacant', tenant: '-', phone: '-', leaseEnd: '-', progress: 0 },
+  { id: '3', title: 'B号楼 305', type: '标准两居', area: 75, rent: 5500, status: 'occupied', tenant: '李小美', phone: '139***888', leaseEnd: '2024-05-20', progress: 40 },
+  { id: '4', title: 'C号楼 502', type: '大套间', area: 90, rent: 6200, status: 'maintenance', tenant: '-', phone: '-', leaseEnd: '-', progress: 0 },
+  { id: '5', title: 'A号楼 203', type: '一室一厅', area: 45, rent: 3300, status: 'occupied', tenant: '王老五', phone: '135***111', leaseEnd: '2024-12-01', progress: 70 },
+  { id: '6', title: 'B号楼 401', type: '单间', area: 22, rent: 1600, status: 'occupied', tenant: '赵六', phone: '186***222', leaseEnd: '2024-03-30', progress: 95 },
+])
 
-const showImportModal = ref(false)
 const searchQuery = ref('')
-const viewMode = ref<'grid' | 'list'>('grid')
 const statusFilter = ref('all')
+const selectedIds = ref<string[]>([])
 
-const filteredProperties = computed(() => {
-  return props.properties.filter(p => {
-    const matchesSearch = p.title.includes(searchQuery.value) || p.address.includes(searchQuery.value)
+const filteredData = computed(() => {
+  return mockProperties.value.filter(p => {
+    const matchesSearch = p.title.toLowerCase().includes(searchQuery.value.toLowerCase()) || 
+                          p.tenant.includes(searchQuery.value)
     const matchesStatus = statusFilter.value === 'all' || p.status === statusFilter.value
     return matchesSearch && matchesStatus
   })
 })
+
+const toggleAll = () => {
+  if (selectedIds.value.length === filteredData.value.length) {
+    selectedIds.value = []
+  } else {
+    selectedIds.value = filteredData.value.map(p => p.id)
+  }
+}
+
+const getStatusLabel = (status: string) => {
+  const map: any = {
+    occupied: { text: '已出租', color: '#10b981' },
+    vacant: { text: '待租', color: '#f59e0b' },
+    maintenance: { text: '维修中', color: '#ef4444' }
+  }
+  return map[status] || { text: status, color: '#94a3b8' }
+}
+
+const exportLedger = () => {
+  alert(`正在生成 ${selectedIds.value.length || filteredData.value.length} 条房源的Excel台账报表...`)
+}
 </script>
 
 <template>
-  <div class="property-list-view">
-    <div class="toolbar glass">
-      <div class="search-box">
-        <Search :size="18" />
-        <input v-model="searchQuery" type="text" placeholder="按名称或地址搜索房源..." />
+  <div class="ledger-view">
+    <header class="page-top">
+      <div>
+        <h1 class="text-2xl font-bold">房源台账管理</h1>
+        <p class="text-sm text-gray-500">资产全局搜索、批量审计与数据导出中心</p>
       </div>
-      
-      <div class="filters">
-        <div class="filter-group">
-          <Filter :size="16" />
-          <select v-model="statusFilter">
-            <option value="all">所有状态</option>
-            <option value="occupied">已出租</option>
-            <option value="vacant">待租</option>
-            <option value="maintenance">维修中</option>
-          </select>
-        </div>
-
-        <div class="view-toggle">
-          <button :class="{ active: viewMode === 'grid' }" @click="viewMode = 'grid'">
-            <LayoutGrid :size="18" />
-          </button>
-          <button :class="{ active: viewMode === 'list' }" @click="viewMode = 'list'">
-            <List :size="18" />
-          </button>
-        </div>
-
-        <button class="secondary-btn" @click="showImportModal = true">
-          <UploadCloud :size="18" />
-          <span>批量导入</span>
+      <div class="top-actions">
+        <button class="export-btn" @click="exportLedger">
+          <Download :size="18" /> 导出本页台账
         </button>
-
         <button class="primary-btn">
-          <Plus :size="18" />
-          <span>新增房源</span>
+          <Plus :size="18" /> 新增录入
         </button>
+      </div>
+    </header>
+
+    <!-- Ledger Stats Summary -->
+    <div class="stats-summary-strip glass">
+      <div class="strip-item">
+        <TrendingUp :size="20" color="#10b981" />
+        <div class="s-info"><span class="v">94.2%</span><span class="l">当前出租率</span></div>
+      </div>
+      <div class="strip-item">
+        <Clock :size="20" color="#f59e0b" />
+        <div class="s-info"><span class="v">12</span><span class="l">本月即将到期</span></div>
+      </div>
+      <div class="strip-item">
+        <AlertCircle :size="20" color="#ef4444" />
+        <div class="s-info"><span class="v">3</span><span class="l">空置超过15天</span></div>
+      </div>
+      <div class="strip-item">
+        <CheckCircle2 :size="20" color="#6366f1" />
+        <div class="s-info"><span class="v">¥32,400</span><span class="l">本月预估营收</span></div>
       </div>
     </div>
 
-    <!-- Data Import Modal -->
-    <DataImportModal :show="showImportModal" @close="showImportModal = false" />
-
-    <div :class="['content-area', viewMode]">
-      <template v-if="viewMode === 'grid'">
-        <PropertyCard 
-          v-for="p in filteredProperties" 
-          :key="p.id" 
-          :property="p" 
-        />
-      </template>
-      <template v-else>
-        <div class="list-container glass">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>房源信息</th>
-                <th>状态</th>
-                <th>月租</th>
-                <th>租客</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="p in filteredProperties" :key="p.id">
-                <td>
-                  <div class="prop-info">
-                    <img :src="p.thumbnail" class="mini-thumb" />
-                    <div>
-                      <div class="name">{{ p.title }}</div>
-                      <div class="addr">{{ p.address }}</div>
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <span class="status-dot" :class="p.status"></span>
-                  {{ p.status === 'occupied' ? '已出租' : p.status === 'vacant' ? '待租' : '维修中' }}
-                </td>
-                <td>¥{{ p.price.toLocaleString() }}</td>
-                <td>{{ p.tenant || '-' }}</td>
-                <td><button class="action-btn">编辑</button></td>
-              </tr>
-            </tbody>
-          </table>
+    <!-- Multi-Tool Toolbar -->
+    <div class="ledger-toolbar">
+      <div class="search-group">
+        <div class="search-input-wrap">
+          <Search :size="18" class="search-icon" />
+          <input v-model="searchQuery" type="text" placeholder="全局搜索房号、租客名..." />
         </div>
-      </template>
+        <div class="filter-pills">
+          <button 
+            v-for="s in [{id:'all',l:'全部'}, {id:'occupied',l:'已租'}, {id:'vacant',l:'待租'}, {id:'maintenance',l:'维修'}]"
+            :key="s.id"
+            :class="{ active: statusFilter === s.id }"
+            @click="statusFilter = s.id"
+          >
+            {{ s.l }}
+          </button>
+        </div>
+      </div>
+      
+      <div class="batch-ops" v-if="selectedIds.length > 0">
+        <span class="selected-count">已选 {{ selectedIds.length }} 项</span>
+        <button class="batch-btn"><Edit3 :size="14"/> 批量调价</button>
+        <button class="batch-btn"><Copy :size="14"/> 应用模板</button>
+        <button class="batch-btn danger"><Trash2 :size="14"/> 批量删除</button>
+      </div>
+    </div>
+
+    <!-- Data Table Ledger -->
+    <div class="ledger-table-container glass">
+      <table class="ledger-table">
+        <thead>
+          <tr>
+            <th class="check-col">
+              <input type="checkbox" :checked="selectedIds.length === filteredData.length && filteredData.length > 0" @change="toggleAll" />
+            </th>
+            <th>房源/规格</th>
+            <th>月租金</th>
+            <th>房源状态</th>
+            <th>租客及联系方式</th>
+            <th>租约进度/到期</th>
+            <th class="actions-col">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="p in filteredData" :key="p.id" :class="{ selected: selectedIds.includes(p.id) }">
+            <td>
+              <input type="checkbox" v-model="selectedIds" :value="p.id" />
+            </td>
+            <td>
+              <div class="prop-cell">
+                <span class="p-title">{{ p.title }}</span>
+                <span class="p-meta">{{ p.type }} · {{ p.area }}㎡</span>
+              </div>
+            </td>
+            <td>
+              <span class="p-price">¥{{ p.rent }}</span>
+            </td>
+            <td>
+              <div class="status-badge" :style="{ color: getStatusLabel(p.status).color, background: getStatusLabel(p.status).color + '10', borderColor: getStatusLabel(p.status).color + '30' }">
+                {{ getStatusLabel(p.status).text }}
+              </div>
+            </td>
+            <td>
+              <div class="tenant-cell">
+                <span class="t-name">{{ p.tenant }}</span>
+                <span class="t-phone" v-if="p.phone !== '-'">{{ p.phone }}</span>
+              </div>
+            </td>
+            <td>
+              <div class="lease-cell" v-if="p.leaseEnd !== '-'">
+                <div class="progress-track"><div class="progress-fill" :style="{ width: p.progress + '%', background: p.progress > 80 ? '#f87171' : 'var(--accent-primary)' }"></div></div>
+                <span class="lease-date">{{ p.leaseEnd }}</span>
+              </div>
+              <span class="p-meta" v-else>暂无租约</span>
+            </td>
+            <td>
+              <div class="row-actions">
+                <button class="row-btn"><Edit3 :size="16"/></button>
+                <button class="row-btn"><ChevronRight :size="16"/></button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <div v-if="filteredData.length === 0" class="empty-state">
+        <AlertCircle :size="48" />
+        <p>未找到匹配条件的房源数据</p>
+      </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.ledger-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  color: #fff;
+}
+
+.page-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+.top-actions { display: flex; gap: 1rem; }
+
+.export-btn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border-color);
+  padding: 0.75rem 1.25rem;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.primary-btn {
+  background: var(--accent-primary);
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+}
+
+/* Summary Strip */
+.stats-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding: 1.5rem;
+  border-radius: 20px;
+  border: 1px solid var(--glass-border);
+}
+
+.strip-item { display: flex; align-items: center; gap: 1rem; border-right: 1px solid rgba(255,255,255,0.05); padding: 0 1.5rem; }
+.strip-item:last-child { border-right: none; }
+.strip-item .s-info { display: flex; flex-direction: column; }
+.strip-item .v { font-size: 1.2rem; font-weight: 800; font-family: 'Outfit', sans-serif; }
+.strip-item .l { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; }
+
+/* Toolbar */
+.ledger-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+
+.search-group { display: flex; align-items: center; gap: 1.5rem; }
+.search-input-wrap {
+  position: relative;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  width: 300px;
+  display: flex;
+  align-items: center;
+  padding: 0 1rem;
+}
+.search-input-wrap input { background: transparent; border: none; outline: none; padding: 0.8rem 0; color: #fff; width: 100%; }
+
+.filter-pills { display: flex; gap: 6px; }
+.filter-pills button { 
+  font-size: 0.8rem; padding: 6px 14px; border-radius: 20px; 
+  background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); color: var(--text-muted);
+}
+.filter-pills button.active { background: var(--accent-primary); color: #fff; border-color: var(--accent-primary); }
+
+.batch-ops {
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  animation: slideIn 0.3s ease;
+}
+.selected-count { font-size: 0.8rem; font-weight: 700; color: var(--accent-primary); margin-right: 0.5rem; }
+.batch-btn { font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; background: #fff; color: #000; }
+.batch-btn.danger { background: rgba(248, 113, 113, 0.1); color: #f87171; }
+
+/* Table Ledger */
+.ledger-table-container {
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+}
+
+.ledger-table { width: 100%; border-collapse: collapse; }
+.ledger-table th {
+  text-align: left; padding: 1.25rem 1.5rem; background: rgba(255,255,255,0.02);
+  color: var(--text-muted); font-size: 0.75rem; font-weight: 800; text-transform: uppercase; border-bottom: 1px solid var(--border-color);
+}
+
+.ledger-table td { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-color); vertical-align: middle; transition: all 0.2s; }
+.ledger-table tr:hover td { background: rgba(255,255,255,0.01); }
+.ledger-table tr.selected td { background: rgba(99, 102, 241, 0.05); }
+
+.prop-cell { display: flex; flex-direction: column; gap: 4px; }
+.p-title { font-weight: 700; font-size: 0.95rem; color: #fff; }
+.p-meta { font-size: 0.75rem; color: var(--text-muted); }
+
+.p-price { font-weight: 800; font-family: 'Outfit', sans-serif; font-size: 1rem; color: var(--accent-primary); }
+
+.status-badge {
+  display: inline-flex; padding: 4px 10px; border-radius: 8px; font-size: 0.75rem; font-weight: 800; border: 1px solid transparent;
+}
+
+.tenant-cell { display: flex; flex-direction: column; gap: 4px; }
+.t-name { font-weight: 600; font-size: 0.9rem; }
+.t-phone { font-size: 0.75rem; color: var(--text-muted); font-family: 'Courier New', Courier, monospace; }
+
+.lease-cell { display: flex; flex-direction: column; gap: 6px; width: 140px; }
+.progress-track { height: 4px; background: rgba(255,255,255,0.05); border-radius: 2px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 2px; }
+.lease-date { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; }
+
+.row-actions { display: flex; gap: 8px; }
+.row-btn { width: 32px; height: 32px; border-radius: 8px; color: var(--text-muted); display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+.row-btn:hover { background: rgba(255,255,255,0.05); color: #fff; }
+
+.empty-state { padding: 5rem; text-align: center; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+
+@keyframes slideIn { from { transform: translateY(-10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+.glass { background: rgba(17, 17, 20, 0.98); backdrop-filter: blur(20px); }
+</style>
 
 <style scoped>
 .property-list-view {

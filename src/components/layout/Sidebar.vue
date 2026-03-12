@@ -8,7 +8,8 @@ import {
   Settings,
   ShieldCheck,
   FileText,
-  Grid2X2
+  Grid2X2,
+  Copy
 } from 'lucide-vue-next'
 
 import { useRoute } from 'vue-router'
@@ -22,6 +23,7 @@ const navItems = [
   { id: 'properties', label: '房源列表', icon: Home },
   { id: 'tenants', label: '租客管理', icon: Users },
   { id: 'contracts', label: '合同中心', icon: FileText },
+  { id: 'templates', label: '房源模板', icon: Copy },
   { id: 'maintenance', label: '报修/维护', icon: Wrench },
   { id: 'finance', label: '财务报表', icon: Wallet },
 ]

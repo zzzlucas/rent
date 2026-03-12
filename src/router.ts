@@ -41,6 +41,11 @@ const routes = [
     component: () => import('./components/property/FinanceView.vue')
   },
   {
+    path: '/templates',
+    name: 'templates',
+    component: () => import('./views/TemplateListView.vue')
+  },
+  {
     path: '/settings',
     name: 'settings',
     component: () => import('./views/SettingsView.vue')
