@@ -173,7 +173,7 @@ const navigateTo = (path: string) => {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
   gap: 1.5rem;
 }
 
@@ -213,7 +213,7 @@ const navigateTo = (path: string) => {
   margin-top: 4rem;
 }
 
-@media (max-width: 1280px) {
+@media (max-width: 1279px) {
   .dashboard-secondary-grid {
     grid-template-columns: 1fr;
     gap: 0;

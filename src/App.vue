@@ -190,7 +190,7 @@ const openProperty = (p: any) => {
   margin-top: 4rem;
 }
 
-@media (max-width: 1280px) {
+@media (max-width: 1279px) {
   .dashboard-secondary-grid {
     grid-template-columns: 1fr;
     gap: 0;
