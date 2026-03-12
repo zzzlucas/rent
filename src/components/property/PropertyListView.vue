@@ -13,9 +13,12 @@ import {
   CheckCircle2,
   AlertCircle,
   Copy,
-  Star
+  Star,
+  Upload,
+  HelpCircle
 } from 'lucide-vue-next'
 import { followedPropertyIds, toggleFollowProperty } from '../../store'
+import DataImportModal from './DataImportModal.vue'
 
 // Mock Data enriched for Ledger view
 const mockProperties = ref([
@@ -60,6 +63,8 @@ const getStatusLabel = (status: string) => {
 const exportLedger = () => {
   alert(`正在生成 ${selectedIds.value.length || filteredData.value.length} 条房源的Excel台账报表...`)
 }
+
+const showImportModal = ref(false)
 </script>
 
 <template>
@@ -70,6 +75,11 @@ const exportLedger = () => {
         <p class="text-sm text-gray-500">资产全局搜索、批量审计与数据导出中心</p>
       </div>
       <div class="top-actions">
+        <div class="import-group">
+          <button class="export-btn" @click="showImportModal = true">
+            <Upload :size="18" /> Excel 导入
+          </button>
+        </div>
         <button class="export-btn" @click="exportLedger">
           <Download :size="18" /> 导出本页台账
         </button>
@@ -78,6 +88,8 @@ const exportLedger = () => {
         </button>
       </div>
     </header>
+
+    <DataImportModal :show="showImportModal" initial-type="properties" @close="showImportModal = false" />
 
     <!-- Ledger Stats Summary -->
     <div class="stats-summary-strip glass">
@@ -211,16 +223,19 @@ const exportLedger = () => {
 .top-actions { display: flex; gap: 1rem; }
 
 .export-btn {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid var(--border-color);
-  padding: 0.75rem 1.25rem;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 0.8rem 1.25rem;
   border-radius: 12px;
   display: flex;
   align-items: center;
   gap: 8px;
-  font-weight: 600;
-  color: var(--text-secondary);
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s;
 }
+.export-btn:hover { background: rgba(255, 255, 255, 0.15); border-color: var(--accent-primary); }
 
 .primary-btn {
   background: var(--accent-primary);

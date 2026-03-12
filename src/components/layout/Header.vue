@@ -1,10 +1,16 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { 
   Bell, 
   Search, 
   Plus,
-  ShieldCheck
+  ShieldCheck,
+  Upload,
+  HelpCircle
 } from 'lucide-vue-next'
+import DataImportModal from '../property/DataImportModal.vue'
+
+const showImportModal = ref(false)
 </script>
 
 <template>
@@ -20,10 +26,23 @@ import {
     </div>
 
     <div class="header-actions">
+      <div class="import-group">
+        <button class="secondary-btn-header" @click="showImportModal = true">
+          <Upload :size="16" />
+          <span>Excel 导入</span>
+        </button>
+        <div class="tip-wrap tip-down">
+          <HelpCircle :size="14" class="tip-icon" />
+          <div class="tip-content">通过专业AI智能体进行数据预处理</div>
+        </div>
+      </div>
+
       <button class="add-btn">
         <Plus :size="18" />
         <span>添加房源</span>
       </button>
+
+      <DataImportModal :show="showImportModal" @close="showImportModal = false" />
 
       <button class="icon-btn notification-btn">
         <Bell :size="20" />
@@ -136,14 +155,26 @@ input::placeholder {
 }
 
 .badge {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 8px;
-  height: 8px;
-  background: var(--accent-danger);
-  border-radius: 50%;
   border: 2px solid var(--bg-main);
+}
+
+.secondary-btn-header {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+.secondary-btn-header:hover { 
+  background: rgba(255, 255, 255, 0.15); 
+  border-color: var(--accent-primary);
 }
 
 @media (max-width: 1024px) {

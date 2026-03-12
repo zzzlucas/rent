@@ -14,8 +14,8 @@
   --accent-danger: #ef4444;
   
   --text-primary: #ffffff;
-  --text-secondary: #a1a1aa;
-  --text-muted: #71717a;
+  --text-secondary: #d4d4d8;
+  --text-muted: #a1a1aa;
   
   --border-color: rgba(255, 255, 255, 0.08);
   --glass-border: rgba(255, 255, 255, 0.1);
@@ -78,6 +78,87 @@ button {
 
 .fade-in {
   animation: fadeIn 0.6s ease-out forwards;
+}
+
+/* Global Button & Action Layouts */
+.import-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tip-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: help;
+  color: var(--text-primary);
+  opacity: 0.8;
+  transition: all 0.2s;
+}
+
+.tip-wrap:hover {
+  opacity: 1;
+  color: var(--accent-primary);
+  transform: scale(1.1);
+}
+
+.tip-content {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  background: #1e1e24;
+  padding: 12px 16px;
+  border-radius: 12px;
+  width: 240px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1.5;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  visibility: hidden;
+  opacity: 0;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1000;
+  pointer-events: none;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+  text-align: center;
+}
+
+.tip-wrap:hover .tip-content {
+  visibility: visible;
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.tip-content::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: #1e1e24;
+}
+
+/* Downward Tooltip Variant */
+.tip-wrap.tip-down .tip-content {
+  bottom: auto;
+  top: calc(100% + 12px);
+  transform: translateX(-50%) translateY(-10px);
+}
+
+.tip-wrap.tip-down:hover .tip-content {
+  transform: translateX(-50%) translateY(0);
+}
+
+.tip-wrap.tip-down .tip-content::after {
+  top: auto;
+  bottom: 100%;
+  border-top-color: transparent;
+  border-bottom-color: #1e1e24;
 }
 
 /* Scrollbar */

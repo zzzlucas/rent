@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { Wrench, Clock, CheckCircle2, AlertCircle } from 'lucide-vue-next'
+import { Wrench, Clock, CheckCircle2, AlertCircle, Upload, HelpCircle } from 'lucide-vue-next'
+import { ref } from 'vue'
+import DataImportModal from './DataImportModal.vue'
 
 const tickets = [
   { id: 1, title: '空调不制冷', property: '秀湖花苑 8号楼 1202', tenant: '张先生', date: '2024-03-12', status: 'pending', priority: 'high' },
@@ -16,6 +18,8 @@ const getStatusInfo = (status: string) => {
     default: return { label: '未知', icon: AlertCircle, color: 'var(--text-muted)' }
   }
 }
+
+const showImportModal = ref(false)
 </script>
 
 <template>
@@ -39,9 +43,16 @@ const getStatusInfo = (status: string) => {
       <div class="ticket-header">
         <h2>报修单列表</h2>
         <div class="actions">
+          <div class="import-group">
+            <button class="secondary-btn" @click="showImportModal = true">
+              <Upload :size="18" /> Excel 导入
+            </button>
+          </div>
           <button class="primary-btn">发布新任务</button>
         </div>
       </div>
+
+      <DataImportModal :show="showImportModal" initial-type="maintenance" @close="showImportModal = false" />
 
       <div class="tickets-list">
         <div v-for="t in tickets" :key="t.id" class="ticket-item" :class="t.status">
@@ -117,6 +128,12 @@ const getStatusInfo = (status: string) => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 2rem;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
 }
 
 .tickets-list {
@@ -198,6 +215,20 @@ const getStatusInfo = (status: string) => {
   border-radius: var(--radius-md);
   font-weight: 600;
 }
+
+.secondary-btn {
+  padding: 0.8rem 1.25rem;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+.secondary-btn:hover { background: rgba(255, 255, 255, 0.15); border-color: var(--accent-primary); }
 
 .glass {
   background: rgba(255, 255, 255, 0.03);

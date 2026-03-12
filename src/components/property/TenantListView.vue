@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Search, Plus, Filter, Mail, Phone, MoreVertical } from 'lucide-vue-next'
+import { Search, Plus, Filter, Mail, Phone, MoreVertical, Upload, HelpCircle } from 'lucide-vue-next'
+import DataImportModal from './DataImportModal.vue'
 
 const tenants = [
   { id: 1, name: '张三', phone: '138****8888', email: 'zhangsan@example.com', property: '秀湖花苑 8号楼 1202', status: 'active', joinDate: '2023-05-20' },
@@ -10,6 +11,7 @@ const tenants = [
 ]
 
 const searchQuery = ref('')
+const showImportModal = ref(false)
 </script>
 
 <template>
@@ -21,6 +23,12 @@ const searchQuery = ref('')
       </div>
       
       <div class="actions">
+        <div class="import-group">
+          <button class="secondary-btn" @click="showImportModal = true">
+            <Upload :size="18" />
+            <span>Excel 导入</span>
+          </button>
+        </div>
         <button class="secondary-btn">
           <Filter :size="18" />
           <span>筛选</span>
@@ -31,6 +39,8 @@ const searchQuery = ref('')
         </button>
       </div>
     </div>
+
+    <DataImportModal :show="showImportModal" initial-type="tenants" @close="showImportModal = false" />
 
     <div class="tenant-table-container glass">
       <table class="tenant-table">
@@ -126,15 +136,20 @@ const searchQuery = ref('')
 }
 
 .secondary-btn {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--text-primary);
-  padding: 0.6rem 1.2rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  padding: 0.8rem 1.25rem;
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  border: 1px solid var(--border-color);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 700;
+  font-size: 0.85rem;
 }
+.secondary-btn:hover { background: rgba(255, 255, 255, 0.15); border-color: var(--accent-primary); }
 
 .tenant-table-container {
   border-radius: var(--radius-lg);

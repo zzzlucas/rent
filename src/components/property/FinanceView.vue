@@ -14,8 +14,11 @@ import {
   Banknote,
   Smartphone,
   Check,
-  X
+  X,
+  Upload,
+  HelpCircle
 } from 'lucide-vue-next'
+import DataImportModal from './DataImportModal.vue'
 
 interface Transaction {
   id: number
@@ -114,6 +117,8 @@ const stats = [
   { label: '本月净收入', value: '¥42,800', trend: '+5.2%', isUp: true },
   { label: '待收金额', value: '¥18,400', trend: '-2.1%', isUp: false },
 ]
+
+const showImportModal = ref(false)
 </script>
 
 <template>
@@ -137,6 +142,12 @@ const stats = [
           <h2>收支明细</h2>
           <div class="actions">
             <button class="icon-btn"><Filter :size="18" /></button>
+            <div class="import-group">
+              <button class="secondary-btn" @click="showImportModal = true">
+                <Upload :size="16" />
+                <span>Excel 导入</span>
+              </button>
+            </div>
             <button class="primary-btn-sm" @click="isEntryModalOpen = true">
               <Plus :size="16" />
               <span>记一笔</span>
@@ -147,6 +158,8 @@ const stats = [
             </button>
           </div>
         </div>
+
+        <DataImportModal :show="showImportModal" initial-type="finance" @close="showImportModal = false" />
 
         <div class="table-wrapper">
           <table class="finance-table">
@@ -423,16 +436,20 @@ const stats = [
 }
 
 .secondary-btn {
-  background: rgba(255, 255, 255, 0.05);
-  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.8rem 1.25rem;
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-weight: 600;
-  font-size: 0.8rem;
-  border: 1px solid var(--border-color);
+  font-weight: 700;
+  font-size: 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  color: #fff;
+  transition: all 0.2s;
 }
+.secondary-btn:hover { background: rgba(255, 255, 255, 0.15); border-color: var(--accent-primary); }
 
 .finance-table {
   width: 100%;

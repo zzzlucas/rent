@@ -9,8 +9,10 @@ import {
   Clock, 
   X,
   Upload,
-  ArrowRight
+  ArrowRight,
+  HelpCircle
 } from 'lucide-vue-next'
+import DataImportModal from './DataImportModal.vue'
 
 const contracts = [
   { id: 1, tenant: '张三', property: '秀湖花苑 8号楼 1202', rent: 3500, period: '2023.05 - 2024.05', status: 'active' },
@@ -40,6 +42,8 @@ const saveContract = () => {
   showScanner.value = false
   scanState.value = 'idle'
 }
+
+const showImportModal = ref(false)
 </script>
 
 <template>
@@ -49,11 +53,21 @@ const saveContract = () => {
         <h2>合同管理 <span class="badge">{{ contracts.length }}</span></h2>
         <p>支持拍照上传，通过 AI 模型自动识别并录入纸质合同。</p>
       </div>
-      <button class="ai-scan-btn" @click="showScanner = true">
-        <Scan :size="20" />
-        <span>AI 智绘录入</span>
-      </button>
+      <div class="header-actions">
+        <div class="import-group">
+          <button class="secondary-btn" @click="showImportModal = true">
+            <Upload :size="18" />
+            <span>Excel 批量导入</span>
+          </button>
+        </div>
+        <button class="ai-scan-btn" @click="showScanner = true">
+          <Scan :size="20" />
+          <span>AI 智绘录入</span>
+        </button>
+      </div>
     </div>
+
+    <DataImportModal :show="showImportModal" initial-type="contracts" @close="showImportModal = false" />
 
     <!-- Contract List -->
     <div class="contracts-grid">
@@ -209,6 +223,12 @@ const saveContract = () => {
   box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4);
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .contracts-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
@@ -357,11 +377,19 @@ const saveContract = () => {
 }
 
 .secondary-btn {
-  background: rgba(255, 255, 255, 0.05);
-  padding: 0.85rem;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.8rem 1.25rem;
   border-radius: var(--radius-md);
-  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s;
 }
+.secondary-btn:hover { background: rgba(255, 255, 255, 0.15); border-color: var(--accent-primary); }
 
 .upload-link {
   display: flex;

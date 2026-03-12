@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { X, Phone, Edit3, Check, Eye, EyeOff, ChevronRight, Star } from 'lucide-vue-next'
+import { X, Phone, Edit3, Check, Eye, EyeOff, ChevronRight, Star, Wallet, Copy } from 'lucide-vue-next'
+import AIAssistant from './AIAssistant.vue'
 import { propertyTemplates, activeApplyingTemplateId, showToast, followedPropertyIds, toggleFollowProperty } from '../../store'
 
 const selectedBlock = ref<'1' | '2'>('1')
@@ -757,6 +758,9 @@ const toggleSmsQuick = () => {
       </div>
     </div>
   </div>
+
+  <!-- AI Assistant -->
+  <AIAssistant :data="blockStats" />
 </template>
 
 <style scoped>
