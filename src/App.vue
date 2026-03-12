@@ -77,7 +77,6 @@ const openProperty = (p: any) => {
       @close="selectedProperty = null" 
     />
 
-    <!-- Global Toast Notifications -->
     <div class="toast-container">
       <TransitionGroup name="toast">
         <div 
@@ -86,13 +85,23 @@ const openProperty = (p: any) => {
           class="toast-item glass" 
           :class="toast.type"
         >
-          <div class="toast-icon">
-            <CheckCircle2 v-if="toast.type === 'success'" :size="18" />
-            <AlertCircle v-else-if="toast.type === 'error'" :size="18" />
-            <AlertCircle v-else-if="toast.type === 'warning'" :size="18" />
-            <Info v-else :size="18" />
+          <div class="toast-content">
+            <div class="toast-icon">
+              <CheckCircle2 v-if="toast.type === 'success'" :size="20" />
+              <AlertCircle v-else-if="toast.type === 'error'" :size="20" />
+              <AlertCircle v-else-if="toast.type === 'warning'" :size="20" />
+              <Info v-else :size="20" />
+            </div>
+            <div class="toast-inner">
+              <span class="toast-message">{{ toast.message }}</span>
+            </div>
+            <button class="toast-close" @click="toasts = toasts.filter(t => t.id !== toast.id)">
+              <X :size="14" />
+            </button>
           </div>
-          <span class="toast-message">{{ toast.message }}</span>
+          <div class="toast-progress">
+            <div class="progress-bar"></div>
+          </div>
         </div>
       </TransitionGroup>
     </div>
@@ -131,42 +140,119 @@ const openProperty = (p: any) => {
   }
 }
 
-/* Toast Styles */
+/* Toast Styles - Premium Version */
 .toast-container {
   position: fixed;
-  bottom: 2rem;
+  top: 2rem; /* Move to top for better visibility */
   right: 2rem;
-  z-index: 9999;
+  z-index: 11000; /* Above all modals */
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1rem;
   pointer-events: none;
 }
 
 .toast-item {
-  padding: 1rem 1.5rem;
-  border-radius: 12px;
+  background: rgba(15, 17, 21, 0.9);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  min-width: 320px;
+  max-width: 450px;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  pointer-events: auto;
+  position: relative;
+}
+
+.toast-content {
+  padding: 1.25rem 1.5rem;
   display: flex;
   align-items: center;
   gap: 12px;
-  min-width: 260px;
-  border: 1px solid rgba(255,255,255,0.1);
-  box-shadow: 0 10px 25px -10px rgba(0,0,0,0.5);
-  pointer-events: auto;
 }
 
-.toast-item.success { border-left: 4px solid #10b981; color: #fff; }
-.toast-item.error { border-left: 4px solid #ef4444; color: #fff; }
-.toast-item.warning { border-left: 4px solid #f59e0b; color: #fff; }
-.toast-item.info { border-left: 4px solid #6366f1; color: #fff; }
-
-.toast-message { font-size: 0.9rem; font-weight: 600; }
-
-.toast-enter-active, .toast-leave-active {
-  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+.toast-inner {
+  flex: 1;
 }
-.toast-enter-from { transform: translateX(100%) scale(0.9); opacity: 0; }
-.toast-leave-to { transform: translateX(100%) scale(0.9); opacity: 0; }
+
+.toast-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.toast-item.success .toast-icon { color: #10b981; }
+.toast-item.error .toast-icon { color: #ef4444; }
+.toast-item.warning .toast-icon { color: #f59e0b; }
+.toast-item.info .toast-icon { color: #6366f1; }
+
+.toast-message {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.4;
+}
+
+.toast-close {
+  background: rgba(255, 255, 255, 0.05);
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: all 0.2s;
+  opacity: 0;
+}
+
+.toast-item:hover .toast-close {
+  opacity: 1;
+}
+
+.toast-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.toast-progress {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.05);
+  width: 100%;
+}
+
+.toast-progress .progress-bar {
+  height: 100%;
+  width: 100%;
+  transform-origin: left;
+  animation: toastProgress 4s linear forwards;
+}
+
+.toast-item.success .progress-bar { background: #10b981; }
+.toast-item.error .progress-bar { background: #ef4444; }
+.toast-item.warning .progress-bar { background: #f59e0b; }
+.toast-item.info .progress-bar { background: #6366f1; }
+
+@keyframes toastProgress {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
+.toast-enter-active {
+  transition: all 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+.toast-leave-active {
+  transition: all 0.3s ease-in;
+}
+
+.toast-enter-from {
+  transform: translateX(50px) scale(0.9);
+  opacity: 0;
+}
+.toast-leave-to {
+  transform: scale(0.95);
+  opacity: 0;
+}
 
 .view-container {
   max-width: 1240px;

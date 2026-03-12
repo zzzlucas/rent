@@ -17,7 +17,7 @@ import {
   Upload,
   HelpCircle
 } from 'lucide-vue-next'
-import { followedPropertyIds, toggleFollowProperty } from '../../store'
+import { followedPropertyIds, toggleFollowProperty, showToast } from '../../store'
 import DataImportModal from './DataImportModal.vue'
 
 // Mock Data enriched for Ledger view
@@ -61,7 +61,7 @@ const getStatusLabel = (status: string) => {
 }
 
 const exportLedger = () => {
-  alert(`正在生成 ${selectedIds.value.length || filteredData.value.length} 条房源的Excel台账报表...`)
+  showToast(`正在生成 ${selectedIds.value.length || filteredData.value.length} 条房源的Excel台账报表...`, 'info')
 }
 
 const showImportModal = ref(false)

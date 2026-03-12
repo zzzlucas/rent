@@ -13,6 +13,7 @@ import {
   Send
 } from 'lucide-vue-next'
 import { followedPropertyIds, showToast } from '../../store'
+import BaseModal from '../common/BaseModal.vue'
 
 const props = defineProps<{
   show: boolean
@@ -97,10 +98,14 @@ const handleConfirm = async () => {
 </script>
 
 <template>
-  <Transition name="fade">
-    <div v-if="show" class="modal-overlay" @click.self="emit('close')">
-      <div class="modal-container glass animate-in">
-        <header class="modal-header">
+  <BaseModal 
+    :show="show" 
+    max-width="600px"
+    @close="emit('close')"
+  >
+    <template #default>
+      <div class="modal-content-wrapper">
+        <header class="custom-header">
           <div class="title-with-icon">
             <div class="zap-icon-wrap">
               <Zap :size="20" fill="currentColor" />
@@ -110,12 +115,9 @@ const handleConfirm = async () => {
               <p>快速向待交租客发送温馨缴费提醒</p>
             </div>
           </div>
-          <button class="close-btn" @click="emit('close')">
-            <X :size="20" />
-          </button>
         </header>
 
-        <div class="modal-body">
+        <div class="modal-body-content">
           <div class="search-and-filter">
             <div class="search-box">
               <Search :size="16" />
@@ -126,7 +128,7 @@ const handleConfirm = async () => {
             </button>
           </div>
 
-          <div class="debt-list custom-scrollbar">
+          <div class="debt-list">
             <div 
               v-for="p in filteredProperties" 
               :key="p.id" 
@@ -171,146 +173,104 @@ const handleConfirm = async () => {
             </div>
           </div>
         </div>
-
-        <footer class="modal-footer">
-          <div v-if="isSending" class="sending-status">
-            <div class="progress-info">
-              <Loader2 :size="16" class="animate-spin" />
-              <span>正在向 {{ selectedIds.size }} 位租客发送 SMS 提醒... ({{ sendProgress }}%)</span>
-            </div>
-            <div class="progress-bar">
-              <div class="progress-fill" :style="{ width: sendProgress + '%' }"></div>
-            </div>
-          </div>
-          
-          <div v-else class="footer-actions">
-            <div class="selected-summary">
-              已选择 <strong>{{ selectedIds.size }}</strong> 位记录
-            </div>
-            <div class="btns">
-              <button class="cancel-btn" @click="emit('close')">取消</button>
-              <button 
-                class="confirm-btn" 
-                :disabled="selectedIds.size === 0"
-                @click="handleConfirm"
-              >
-                <Send :size="18" />
-                立即一键催缴
-              </button>
-            </div>
-          </div>
-        </footer>
       </div>
-    </div>
-  </Transition>
+    </template>
+
+    <template #footer>
+      <div v-if="isSending" class="sending-status">
+        <div class="progress-info">
+          <Loader2 :size="16" class="animate-spin" />
+          <span>正在向 {{ selectedIds.size }} 位租客发送 SMS 提醒... ({{ sendProgress }}%)</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" :style="{ width: sendProgress + '%' }"></div>
+        </div>
+      </div>
+      
+      <div v-else class="footer-actions">
+        <div class="selected-summary">
+          已选择 <strong>{{ selectedIds.size }}</strong> 位记录
+        </div>
+        <div class="btns">
+          <button class="cancel-btn" @click="emit('close')">取消</button>
+          <button 
+            class="confirm-btn" 
+            :disabled="selectedIds.size === 0"
+            @click="handleConfirm"
+          >
+            <Send :size="18" />
+            立即一键催缴
+          </button>
+        </div>
+      </div>
+    </template>
+  </BaseModal>
 </template>
 
 <style scoped>
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
-  backdrop-filter: blur(8px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  padding: 1.5rem;
-}
-
-.modal-container {
-  position: fixed;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 560px;
-  max-width: 90vw;
-  max-height: 85vh;
-  background: #0f1115;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 28px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  box-shadow: 0 40px 80px -12px rgba(0, 0, 0, 0.8);
-  z-index: 10000;
-}
-
-.modal-header {
-  padding: 1.5rem 2rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+/* Content Styles */
+.custom-header {
+  margin-bottom: 2rem;
 }
 
 .title-with-icon {
   display: flex;
-  gap: 1rem;
+  gap: 1.25rem;
   align-items: center;
 }
 
 .zap-icon-wrap {
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   background: rgba(245, 158, 11, 0.1);
   color: #f59e0b;
-  border-radius: 12px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.1);
 }
 
-.modal-header h3 {
+.title-with-icon h3 {
   margin: 0;
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-size: 1.4rem;
+  font-weight: 800;
   color: #fff;
+  letter-spacing: -0.02em;
 }
 
-.modal-header p {
-  margin: 0.25rem 0 0;
-  font-size: 0.85rem;
+.title-with-icon p {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
   color: #94a3b8;
 }
 
-.close-btn {
-  background: transparent;
-  border: none;
-  color: #64748b;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 8px;
-  transition: all 0.2s;
-}
-
-.close-btn:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: #fff;
-}
-
-.modal-body {
-  padding: 1.5rem 2rem;
+.modal-body-content {
+  display: flex;
+  flex-direction: column;
 }
 
 .search-and-filter {
   display: flex;
   gap: 1rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
 }
 
 .search-box {
   flex: 1;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
+  border-radius: 14px;
   display: flex;
   align-items: center;
-  padding: 0 1rem;
-  color: #94a3b8;
+  padding: 0 1.25rem;
+  color: #64748b;
+  transition: all 0.2s;
+}
+
+.search-box:focus-within {
+  border-color: #f59e0b;
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .search-box input {
@@ -318,61 +278,67 @@ const handleConfirm = async () => {
   border: none;
   outline: none;
   color: #fff;
-  padding: 0.75rem 0.5rem;
+  padding: 0.85rem 0.5rem;
   width: 100%;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
 }
 
 .select-all-btn {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #e2e8f0;
-  padding: 0 1.25rem;
-  border-radius: 12px;
-  font-size: 0.85rem;
-  font-weight: 600;
+  color: #cbd5e1;
+  padding: 0 1.5rem;
+  border-radius: 14px;
+  font-size: 0.9rem;
+  font-weight: 700;
   cursor: pointer;
+  transition: all 0.2s;
+}
+
+.select-all-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .debt-list {
-  max-height: 400px;
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  padding-right: 0.5rem;
+  gap: 0.85rem;
 }
 
 .debt-item {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1rem;
+  gap: 1.25rem;
+  padding: 1.25rem;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 16px;
+  border-radius: 18px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.24s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .debt-item:hover {
   background: rgba(255, 255, 255, 0.04);
-  transform: translateX(4px);
+  transform: scale(1.01);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .debt-item.selected {
-  background: rgba(245, 158, 11, 0.04);
-  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.06);
+  border-color: rgba(245, 158, 11, 0.4);
 }
 
 .check-box {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border: 2px solid rgba(255, 255, 255, 0.15);
-  border-radius: 6px;
+  border-radius: 7px;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
 }
 
 .selected .check-box {
@@ -383,10 +349,10 @@ const handleConfirm = async () => {
 .check-inner {
   width: 6px;
   height: 10px;
-  border: 2px solid #000;
+  border: 2.5px solid #000;
   border-top: 0;
   border-left: 0;
-  transform: rotate(45deg) translate(-1px, -1px);
+  transform: rotate(45deg) translate(-1px, -1.5px);
 }
 
 .item-content {
@@ -399,174 +365,165 @@ const handleConfirm = async () => {
 .item-main {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.6rem;
 }
 
 .prop-info {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
 }
 
 .p-title {
-  font-weight: 700;
-  font-size: 0.95rem;
+  font-weight: 750;
+  font-size: 1.05rem;
   color: #fff;
 }
 
 .tenant-info {
   display: flex;
-  gap: 1.25rem;
+  gap: 1.5rem;
 }
 
 .tag-wrap {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.75rem;
-  color: #94a3b8;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: #64748b;
 }
 
 .item-stats {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 0.5rem;
+  gap: 0.6rem;
 }
 
 .amount {
   font-weight: 800;
   color: #fff;
-  font-size: 1.1rem;
+  font-size: 1.25rem;
+  font-family: 'Outfit', sans-serif;
 }
 
 .status-tag {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  font-size: 0.7rem;
-  font-weight: 700;
-  padding: 0.2rem 0.6rem;
-  border-radius: 6px;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 0.25rem 0.75rem;
+  border-radius: 8px;
+  text-transform: uppercase;
 }
 
 .status-tag.danger {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
 }
 
 .status-tag.warning {
-  background: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
-}
-
-.modal-footer {
-  padding: 1.5rem 2rem;
-  background: rgba(255, 255, 255, 0.02);
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
 }
 
 .footer-actions {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  width: 100%;
 }
 
 .selected-summary {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   color: #94a3b8;
 }
 
 .selected-summary strong {
   color: #f59e0b;
+  font-size: 1.1rem;
 }
 
 .btns {
   display: flex;
-  gap: 0.75rem;
+  gap: 1rem;
 }
 
 .cancel-btn {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #fff;
-  padding: 0.75rem 1.5rem;
-  border-radius: 12px;
-  font-weight: 600;
+  color: #cbd5e1;
+  padding: 0.85rem 1.75rem;
+  border-radius: 14px;
+  font-weight: 700;
   cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
 }
 
 .confirm-btn {
   background: #f59e0b;
   border: none;
   color: #000;
-  padding: 0.75rem 1.75rem;
-  border-radius: 12px;
-  font-weight: 700;
+  padding: 0.85rem 2rem;
+  border-radius: 14px;
+  font-weight: 800;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: center;
+  gap: 0.75rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .confirm-btn:hover:not(:disabled) {
   background: #fbbf24;
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(245, 158, 11, 0.3);
+  transform: scale(1.05);
+  box-shadow: 0 10px 30px rgba(245, 158, 11, 0.3);
 }
 
 .confirm-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
+  filter: grayscale(1);
 }
 
 .sending-status {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.25rem;
+  width: 100%;
 }
 
 .progress-info {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  font-size: 0.9rem;
-  font-weight: 600;
+  gap: 1rem;
+  font-size: 1rem;
+  font-weight: 700;
   color: #f59e0b;
 }
 
 .progress-bar {
-  height: 6px;
+  height: 8px;
   background: rgba(255, 255, 255, 0.05);
-  border-radius: 3px;
+  border-radius: 4px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: #f59e0b;
-  transition: width 0.3s ease;
-}
-
-/* Scrollbar */
-.custom-scrollbar::-webkit-scrollbar { width: 5px; }
-.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
-
-/* Animations */
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
-
-.animate-in { animation: modalIn 0.3s cubic-bezier(0.165, 0.84, 0.44, 1) forwards; }
-@keyframes modalIn { 
-  from { opacity: 0; transform: translate(-50%, -45%); } 
-  to { opacity: 1; transform: translate(-50%, -50%); } 
+  background: linear-gradient(90deg, #f59e0b, #fbbf24);
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .animate-spin { animation: spin 1s linear infinite; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-.muted-icon { color: rgba(255, 255, 255, 0.2); }
+.muted-icon { color: rgba(255, 255, 255, 0.3); }
 </style>
