@@ -7,6 +7,8 @@ const selectedRoom = ref<any>(null)
 const isDrawerOpen = ref(false)
 const isEditMode = ref(false)
 const selectedRoomIds = ref<Set<string>>(new Set())
+const isDrawerEditing = ref(false)
+const tempRoomData = ref<Room | null>(null)
 
 // Room data structure with 'isManaged' flag
 interface Room {
@@ -74,6 +76,28 @@ const openRoomDetail = (room: Room) => {
   if (!room.isManaged) return
   selectedRoom.value = room
   isDrawerOpen.value = true
+  isDrawerEditing.value = false
+}
+
+const startEditing = () => {
+  tempRoomData.value = JSON.parse(JSON.stringify(selectedRoom.value))
+  isDrawerEditing.value = true
+}
+
+const saveRoomDetail = () => {
+  if (!tempRoomData.value) return
+  
+  // Find and update the room in buildingData
+  const block = buildingData.value[selectedBlock.value]
+  for (const floor of block) {
+    const roomIndex = floor.rooms.findIndex(r => r.id === tempRoomData.value?.id)
+    if (roomIndex !== -1) {
+      floor.rooms[roomIndex] = { ...tempRoomData.value }
+      selectedRoom.value = { ...tempRoomData.value }
+      break
+    }
+  }
+  isDrawerEditing.value = false
 }
 
 // Batch Editing Logic
@@ -217,30 +241,78 @@ const blockStats = computed(() => {
           <button class="close-btn" @click="isDrawerOpen = false"><X :size="20" /></button>
         </div>
         <div class="drawer-body">
-          <section class="info-section">
-            <h3 class="section-title">房源信息</h3>
-            <div class="info-grid">
-              <div class="info-item"><span class="label">面积</span><span class="val">{{ selectedRoom.area }} ㎡</span></div>
-              <div class="info-item">
-                <span class="label">所属楼栋</span>
-                <span class="val">{{ selectedBlock }}号楼</span>
+          <template v-if="!isDrawerEditing">
+            <section class="info-section">
+              <div class="section-header">
+                <h3 class="section-title">房源信息</h3>
+                <button class="text-edit-btn" @click="startEditing"><Edit3 :size="14" /> 编辑</button>
               </div>
-              <div class="info-item"><span class="label">户型</span><span class="val">{{ selectedRoom.type }}</span></div>
-              <div class="info-item"><span class="label">状态</span><span class="val">{{ selectedRoom.isManaged ? '托管中' : '非业主' }}</span></div>
-            </div>
-          </section>
-          
-          <template v-if="selectedRoom.isManaged && selectedRoom.status === 'occupied'">
-             <section class="info-section">
-              <h3 class="section-title">当前租客</h3>
-              <div class="tenant-mini-card">
-                <div class="avatar">张</div>
-                <div class="t-info">
-                  <div class="t-name">张大壮</div>
-                  <div class="t-phone"><Phone :size="12" /> 138-****-1234</div>
+              <div class="info-grid">
+                <div class="info-item"><span class="label">面积</span><span class="val">{{ selectedRoom.area }} ㎡</span></div>
+                <div class="info-item">
+                  <span class="label">所属楼栋</span>
+                  <span class="val">{{ selectedBlock }}号楼</span>
+                </div>
+                <div class="info-item"><span class="label">户型</span><span class="val">{{ selectedRoom.type }}</span></div>
+                <div class="info-item"><span class="label">状态</span><span class="val">{{ selectedRoom.isManaged ? '托管中' : '非业主' }}</span></div>
+              </div>
+            </section>
+            
+            <template v-if="selectedRoom.isManaged && selectedRoom.status === 'occupied'">
+               <section class="info-section">
+                <h3 class="section-title">当前租客</h3>
+                <div class="tenant-mini-card">
+                  <div class="avatar">张</div>
+                  <div class="t-info">
+                    <div class="t-name">张大壮</div>
+                    <div class="t-phone"><Phone :size="12" /> 138-****-1234</div>
+                  </div>
+                </div>
+              </section>
+            </template>
+          </template>
+
+          <template v-else>
+            <section class="info-section">
+              <h3 class="section-title">维护房源信息</h3>
+              <div class="edit-form">
+                <div class="form-group">
+                  <label>房号</label>
+                  <input v-model="tempRoomData.number" type="text" class="form-input" />
+                </div>
+                <div class="form-group">
+                  <label>面积 (㎡)</label>
+                  <input v-model="tempRoomData.area" type="number" step="0.01" class="form-input" />
+                </div>
+                <div class="form-group">
+                  <label>户型</label>
+                  <select v-model="tempRoomData.type" class="form-select">
+                    <option value="标准间">标准间</option>
+                    <option value="大套间">大套间</option>
+                    <option value="三室两厅">三室两厅</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>当前状态</label>
+                  <div class="status-options">
+                    <button 
+                      v-for="s in (['vacant', 'occupied', 'maintenance'] as const)" 
+                      :key="s"
+                      class="status-opt-btn"
+                      :class="[{ active: tempRoomData.status === s }, s]"
+                      @click="tempRoomData.status = s"
+                    >
+                      {{ s === 'vacant' ? '待租' : s === 'occupied' ? '已租' : '维修' }}
+                    </button>
+                  </div>
                 </div>
               </div>
             </section>
+            
+            <div class="drawer-footer">
+              <button class="cancel-btn" @click="isDrawerEditing = false">取消</button>
+              <button class="save-btn" @click="saveRoomDetail">保存修改</button>
+            </div>
           </template>
         </div>
       </div>
@@ -515,7 +587,98 @@ const blockStats = computed(() => {
 
 .glass { background: rgba(17, 17, 20, 0.98); backdrop-filter: blur(20px); }
 .drawer-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000; }
-.detail-drawer { position: absolute; top: 0; right: 0; width: 360px; height: 100%; background: var(--bg-sidebar); padding: 2rem; }
+.detail-drawer { position: absolute; top: 0; right: 0; width: 360px; height: 100%; background: var(--bg-sidebar); padding: 2rem; display: flex; flex-direction: column; }
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.text-edit-btn {
+  font-size: 0.75rem;
+  color: var(--accent-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.text-edit-btn:hover {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.form-input, .form-select {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.75rem;
+  color: white;
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.status-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.status-opt-btn {
+  padding: 0.5rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid transparent;
+  color: var(--text-muted);
+}
+
+.status-opt-btn.active.vacant { background: var(--accent-success); color: white; }
+.status-opt-btn.active.occupied { background: #475569; color: white; }
+.status-opt-btn.active.maintenance { background: var(--accent-danger); color: white; }
+
+.drawer-footer {
+  margin-top: auto;
+  display: flex;
+  gap: 1rem;
+  padding-top: 2rem;
+}
+
+.cancel-btn {
+  flex: 1;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.save-btn {
+  flex: 2;
+}
 
 /* Scrollbar Style */
 ::-webkit-scrollbar { width: 6px; height: 6px; }

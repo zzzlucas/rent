@@ -11,11 +11,10 @@ import {
   Grid2X2
 } from 'lucide-vue-next'
 
-defineProps<{
-  active: string
-}>()
+import { useRoute } from 'vue-router'
 
-const emit = defineEmits(['navigate'])
+const route = useRoute()
+
 
 const navItems = [
   { id: 'dashboard', label: '仪表盘', icon: LayoutDashboard },
@@ -38,23 +37,23 @@ const navItems = [
     </div>
 
     <nav class="nav-links">
-      <button 
+      <router-link 
         v-for="item in navItems" 
         :key="item.id"
+        :to="{ name: item.id }"
         class="nav-item"
-        :class="{ active: active === item.id }"
-        @click="emit('navigate', item.id)"
+        :class="{ active: route.name === item.id }"
       >
         <component :is="item.icon" :size="20" class="icon" />
         <span class="label">{{ item.label }}</span>
-      </button>
+      </router-link>
     </nav>
 
     <div class="sidebar-footer">
-      <button class="nav-item settings-btn" @click="emit('navigate', 'settings')">
+      <router-link to="/settings" class="nav-item settings-btn" :class="{ active: route.name === 'settings' }">
         <Settings :size="20" class="icon" />
         <span class="label">系统设置</span>
-      </button>
+      </router-link>
       <div class="user-profile">
         <div class="avatar">L</div>
         <div class="user-info">

@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import Sidebar from './components/layout/Sidebar.vue'
-import Header from './components/layout/Header.vue'
-import propertyImg from './assets/property-thumb.png'
-import PropertyDetailModal from './components/property/PropertyDetailModal.vue'
+import { useRouter } from 'vue-router'
+import PropertyCard from '../components/property/PropertyCard.vue'
+import propertyImg from '../assets/property-thumb.png'
 import { ArrowUpRight } from 'lucide-vue-next'
 
-const selectedProperty = ref<any>(null)
+const router = useRouter()
 
 const mockProperties = [
   {
@@ -53,63 +52,93 @@ const maintenanceRequests = [
   { id: 3, title: '厨房下水道堵塞', property: '秀湖花苑 3号楼 201', date: '昨天', priority: 'low' },
 ]
 
-const openProperty = (p: any) => {
-  selectedProperty.value = p
+const navigateTo = (path: string) => {
+  router.push(path)
 }
 </script>
 
 <template>
-  <div class="app-container">
-    <Sidebar />
-    <main class="main-content">
-      <Header />
-      <div class="content-viewport">
-        <router-view v-slot="{ Component }">
-          <component :is="Component" />
-        </router-view>
+  <div class="view-container">
+    <section class="page-header animate-slide-up">
+      <h1>数据概览 <span class="muted">Dashboard</span></h1>
+      <p>管理您的房产帝国。当前共有 342 个房源。</p>
+    </section>
+    
+    <div class="stats-grid animate-fade-in" style="animation-delay: 0.1s">
+      <div class="stat-card glass">
+        <div class="stat-value">342</div>
+        <div class="stat-label">房源总数</div>
       </div>
-    </main>
+      <div class="stat-card glass">
+        <div class="stat-value">92.4%</div>
+        <div class="stat-label">出租率</div>
+      </div>
+      <div class="stat-card glass highlight" @click="navigateTo('/finance')" style="cursor: pointer">
+        <div class="stat-value">¥1,245,600</div>
+        <div class="stat-label">本月预估营收</div>
+      </div>
+    </div>
 
-    <!-- Global Modals -->
-    <PropertyDetailModal 
-      :property="selectedProperty" 
-      @close="selectedProperty = null" 
-    />
+    <div class="dashboard-secondary-grid">
+      <section class="section-area animate-fade-in" style="animation-delay: 0.2s">
+        <div class="section-header">
+          <h2>关注房源 <span class="count">4</span></h2>
+          <button class="text-link" @click="navigateTo('/properties')">查看全部</button>
+        </div>
+        <div class="properties-grid">
+          <PropertyCard 
+            v-for="(p, index) in mockProperties" 
+            :key="p.id" 
+            :property="p" 
+            class="animate-slide-up"
+            :style="{ animationDelay: (0.3 + index * 0.1) + 's' }"
+            style="cursor: pointer"
+          />
+        </div>
+      </section>
+
+      <aside class="dashboard-aside animate-fade-in" style="animation-delay: 0.4s">
+        <section class="section-area">
+          <div class="section-header">
+            <h2>待处理报修</h2>
+            <button class="text-link" @click="navigateTo('/maintenance')">全部</button>
+          </div>
+          <div class="maintenance-list">
+            <div v-for="req in maintenanceRequests" :key="req.id" class="maintenance-item glass" @click="navigateTo('/maintenance')">
+              <div class="priority-dot" :class="req.priority"></div>
+              <div class="req-info">
+                <div class="req-title">{{ req.title }}</div>
+                <div class="req-meta">{{ req.property }} · {{ req.date }}</div>
+              </div>
+              <ArrowUpRight :size="18" class="detail-icon" />
+            </div>
+          </div>
+        </section>
+
+        <section class="section-area quick-stats">
+          <div class="section-header">
+            <h2>本月财务简报</h2>
+          </div>
+          <div class="finance-mini-card glass" @click="navigateTo('/finance')" style="cursor: pointer">
+            <div class="mini-stat">
+              <span class="label">已收租金</span>
+              <span class="value success">¥842,000</span>
+            </div>
+            <div class="mini-stat">
+              <span class="label">待收租金</span>
+              <span class="value warning">¥403,600</span>
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width: 68%"></div>
+            </div>
+          </div>
+        </section>
+      </aside>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.app-container {
-  display: flex;
-  width: 100%;
-  min-height: 100vh;
-}
-
-.main-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-main);
-  min-width: 0;
-  max-width: 100%;
-}
-
-.content-viewport {
-  padding: 2.5rem;
-  overflow-y: auto;
-  max-height: calc(100vh - var(--header-height));
-  transition: padding 0.3s;
-  min-width: 0;
-}
-
-@media (max-width: 1024px) {
-  .content-viewport {
-    padding: 1.5rem;
-    padding-bottom: calc(var(--mobile-nav-height) + 2rem);
-    max-height: none;
-  }
-}
-
 .view-container {
   max-width: 1600px;
   margin: 0 auto;
@@ -128,12 +157,6 @@ const openProperty = (p: any) => {
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-}
-
-@media (max-width: 768px) {
-  .page-header h1 {
-    font-size: 1.85rem;
-  }
 }
 
 .page-header .muted {
@@ -335,45 +358,6 @@ const openProperty = (p: any) => {
   height: 100%;
   background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
   border-radius: 3px;
-}
-
-.placeholder-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 5rem;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--glass-border);
-  text-align: center;
-  margin-top: 2rem;
-}
-
-.placeholder-icon {
-  font-size: 4rem;
-  margin-bottom: 1.5rem;
-}
-
-.placeholder-content h2 {
-  margin-bottom: 1rem;
-}
-
-.placeholder-content p {
-  color: var(--text-muted);
-  margin-bottom: 2rem;
-}
-
-.primary-btn {
-  background: var(--accent-primary);
-  color: white;
-  padding: 0.75rem 1.5rem;
-  border-radius: var(--radius-md);
-  font-weight: 600;
-}
-
-.glass {
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(12px);
 }
 
 /* Animations */
