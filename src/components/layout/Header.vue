@@ -2,12 +2,18 @@
 import { 
   Bell, 
   Search, 
-  Plus
+  Plus,
+  ShieldCheck
 } from 'lucide-vue-next'
 </script>
 
 <template>
   <header class="header glass">
+    <div class="header-left-mobile">
+      <ShieldCheck :size="24" color="#6366f1" />
+      <span class="mobile-logo-text">RentMaster</span>
+    </div>
+
     <div class="search-bar">
       <Search :size="18" class="search-icon" />
       <input type="text" placeholder="搜索房源、租客或流水号..." />
@@ -38,6 +44,22 @@ import {
   position: sticky;
   top: 0;
   z-index: 90;
+}
+
+.header-left-mobile {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  margin-right: 1rem;
+}
+
+.mobile-logo-text {
+  font-size: 1.1rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .search-bar {
@@ -124,11 +146,21 @@ input::placeholder {
   border: 2px solid var(--bg-main);
 }
 
+@media (max-width: 1024px) {
+  .header-left-mobile {
+    display: flex;
+  }
+}
+
 @media (max-width: 768px) {
   .header {
-    padding: 0 1.25rem;
+    padding: 0 1rem;
   }
   
+  .header-left-mobile span {
+    display: none;
+  }
+
   .search-bar {
     width: 40px;
     padding: 0.5rem;

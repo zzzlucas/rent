@@ -156,6 +156,7 @@ const stats = [
                 <th>关联房源</th>
                 <th>日期</th>
                 <th>金额</th>
+                <th>方式</th>
                 <th>状态</th>
               </tr>
             </thead>
@@ -180,7 +181,7 @@ const stats = [
                     <span>{{ getChannelLabel(t.channel) }}</span>
                   </div>
                 </td>
-                <td>
+                <td class="text-right">
                   <span class="status-pill" :class="t.status">
                     {{ t.status === 'completed' ? '已完成' : '进行中' }}
                   </span>
@@ -371,6 +372,26 @@ const stats = [
   gap: 2rem;
 }
 
+@media (max-width: 1366px) {
+  .finance-main-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .finance-charts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+  
+  .chart-card { margin-bottom: 0; }
+}
+
+@media (max-width: 768px) {
+  .finance-charts {
+    grid-template-columns: 1fr;
+  }
+}
+
 .transactions-container {
   padding: 2rem;
   border-radius: var(--radius-lg);
@@ -427,10 +448,13 @@ const stats = [
 }
 
 .finance-table td {
-  padding: 1rem 1.5rem;
+  padding: 1.25rem 1.5rem;
   border-bottom: 1px solid var(--border-color);
   font-size: 0.85rem;
+  white-space: nowrap;
 }
+
+.text-right { text-align: right; }
 
 .channel-info {
   display: flex;

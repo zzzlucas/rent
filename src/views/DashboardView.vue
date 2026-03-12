@@ -1,9 +1,19 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import PropertyCard from '../components/property/PropertyCard.vue'
 import propertyImg from '../assets/property-thumb.png'
-import { ArrowUpRight } from 'lucide-vue-next'
+import { 
+  ArrowUpRight, 
+  TrendingUp, 
+  TrendingDown, 
+  Building2, 
+  Users2, 
+  Clock3, 
+  Coins, 
+  Activity 
+} from 'lucide-vue-next'
+import { followedPropertyIds } from '../store'
 
 const router = useRouter()
 
@@ -55,45 +65,98 @@ const maintenanceRequests = [
 const navigateTo = (path: string) => {
   router.push(path)
 }
+
+const displayedFollowedProperties = computed(() => {
+  return mockProperties.filter(p => followedPropertyIds.value.has(p.id))
+})
 </script>
 
 <template>
   <div class="view-container">
     <section class="page-header animate-slide-up">
       <h1>数据概览 <span class="muted">Dashboard</span></h1>
-      <p>管理您的房产帝国。当前共有 342 个房源。</p>
+      <p>用心管理每一寸空间。目前共有 342 个房源正在您的悉心运营中。</p>
     </section>
     
     <div class="stats-grid animate-fade-in" style="animation-delay: 0.1s">
       <div class="stat-card glass">
+        <div class="stat-card-header">
+          <Building2 :size="18" class="stat-icon purple" />
+          <div class="trend up"><TrendingUp :size="12" /> 2.1%</div>
+        </div>
         <div class="stat-value">342</div>
         <div class="stat-label">房源总数</div>
+        <div class="stat-sub">本月新增 4 个</div>
       </div>
+      
       <div class="stat-card glass">
+        <div class="stat-card-header">
+          <Activity :size="18" class="stat-icon blue" />
+          <div class="trend up"><TrendingUp :size="12" /> 0.8%</div>
+        </div>
         <div class="stat-value">92.4%</div>
-        <div class="stat-label">出租率</div>
+        <div class="stat-label">当前出租率</div>
+        <div class="stat-sub">优于去年同期</div>
       </div>
+
       <div class="stat-card glass highlight" @click="navigateTo('/finance')" style="cursor: pointer">
-        <div class="stat-value">¥1,245,600</div>
+        <div class="stat-card-header">
+          <Coins :size="18" class="stat-icon" />
+          <div class="trend up"><TrendingUp :size="12" /> 5.2%</div>
+        </div>
+        <div class="stat-value">¥115,600</div>
         <div class="stat-label">本月预估营收</div>
+        <div class="stat-sub">已实收 ¥82,400</div>
+      </div>
+
+      <div class="stat-card glass">
+        <div class="stat-card-header">
+          <Users2 :size="18" class="stat-icon green" />
+          <div class="trend up"><TrendingUp :size="12" /> 2份</div>
+        </div>
+        <div class="stat-value">316</div>
+        <div class="stat-label">活跃租约</div>
+        <div class="stat-sub">本月到期 12 份</div>
+      </div>
+
+      <div class="stat-card glass">
+        <div class="stat-card-header">
+          <Clock3 :size="18" class="stat-icon yellow" />
+          <div class="trend down"><TrendingDown :size="12" /> 0.5天</div>
+        </div>
+        <div class="stat-value">12.5 <span class="unit">天</span></div>
+        <div class="stat-label">平均周转时长</div>
+        <div class="stat-sub">空置率持续下降</div>
+      </div>
+
+      <div class="stat-card glass">
+        <div class="stat-card-header">
+          <Activity :size="18" class="stat-icon indigo" />
+        </div>
+        <div class="stat-value">18 <span class="unit">位</span></div>
+        <div class="stat-label">待带看预约</div>
+        <div class="stat-sub">意向客户稳步增长</div>
       </div>
     </div>
 
     <div class="dashboard-secondary-grid">
       <section class="section-area animate-fade-in" style="animation-delay: 0.2s">
         <div class="section-header">
-          <h2>关注房源 <span class="count">4</span></h2>
+          <h2>关注房源 <span class="count">{{ displayedFollowedProperties.length }}</span></h2>
           <button class="text-link" @click="navigateTo('/properties')">查看全部</button>
         </div>
-        <div class="properties-grid">
+        <div class="properties-grid" v-if="displayedFollowedProperties.length > 0">
           <PropertyCard 
-            v-for="(p, index) in mockProperties" 
+            v-for="(p, index) in displayedFollowedProperties" 
             :key="p.id" 
             :property="p" 
             class="animate-slide-up"
             :style="{ animationDelay: (0.3 + index * 0.1) + 's' }"
             style="cursor: pointer"
           />
+        </div>
+        <div v-else class="empty-follow glass">
+          <p>暂无关注房源。您可以在房态看板或列表中点击星标加入关注。</p>
         </div>
       </section>
 
@@ -173,37 +236,103 @@ const navigateTo = (path: string) => {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.25rem;
+}
+
+/* 在 1536px 及以上的大屏显示器上，确保 6 个卡片并排一列 */
+@media (min-width: 1536px) {
+  .stats-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
 }
 
 .stat-card {
-  padding: 2.5rem;
+  padding: 1.75rem;
   border-radius: var(--radius-lg);
   border: 1px solid var(--glass-border);
   background: var(--bg-card);
   backdrop-filter: blur(10px);
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
 }
+
+.stat-card:hover {
+  transform: translateY(-5px);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 12px 24px -10px rgba(0,0,0,0.5);
+}
+
+.stat-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.stat-icon {
+  padding: 8px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 10px;
+  color: #fff;
+}
+
+.stat-icon.purple { color: #a855f7; background: rgba(168, 85, 247, 0.1); }
+.stat-icon.blue { color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
+.stat-icon.green { color: #10b981; background: rgba(16, 185, 129, 0.1); }
+.stat-icon.yellow { color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
+.stat-icon.indigo { color: #6366f1; background: rgba(99, 102, 241, 0.1); }
+
+.trend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+.trend.up { color: #10b981; background: rgba(16, 185, 129, 0.1); }
+.trend.down { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
 
 .stat-card.highlight {
   border-color: rgba(99, 102, 241, 0.3);
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%);
 }
 
 .stat-value {
-  font-size: 2.5rem;
-  font-weight: 800;
-  margin-bottom: 0.5rem;
-  letter-spacing: -0.02em;
+  font-size: 2.2rem;
+  font-weight: 850;
+  margin-bottom: 0.25rem;
+  letter-spacing: -0.04em;
+  background: linear-gradient(to bottom, #fff 40%, #a1a1aa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.stat-value .unit {
+  font-size: 1rem;
+  font-weight: 600;
+  -webkit-text-fill-color: var(--text-muted);
 }
 
 .stat-label {
   color: var(--text-muted);
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  font-weight: 600;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+}
+
+.stat-sub {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  opacity: 0.8;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .dashboard-secondary-grid {
@@ -358,6 +487,15 @@ const navigateTo = (path: string) => {
   height: 100%;
   background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
   border-radius: 3px;
+}
+
+.empty-follow {
+  padding: 3rem;
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--border-color);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
 }
 
 /* Animations */

@@ -12,8 +12,10 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  Copy
+  Copy,
+  Star
 } from 'lucide-vue-next'
+import { followedPropertyIds, toggleFollowProperty } from '../../store'
 
 // Mock Data enriched for Ledger view
 const mockProperties = ref([
@@ -174,6 +176,14 @@ const exportLedger = () => {
             </td>
             <td>
               <div class="row-actions">
+                <button 
+                  class="row-btn star-toggle" 
+                  :class="{ 'is-active': followedPropertyIds.has(p.id) }"
+                  @click="toggleFollowProperty(p.id)"
+                  :title="followedPropertyIds.has(p.id) ? '取消关注' : '加入关注清单'"
+                >
+                  <Star :size="16" :fill="followedPropertyIds.has(p.id) ? 'var(--accent-warning)' : 'none'" />
+                </button>
                 <button class="row-btn"><Edit3 :size="16"/></button>
                 <button class="row-btn"><ChevronRight :size="16"/></button>
               </div>
@@ -316,9 +326,18 @@ const exportLedger = () => {
 .progress-fill { height: 100%; border-radius: 2px; }
 .lease-date { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; }
 
-.row-actions { display: flex; gap: 8px; }
+.row-actions { display: flex; gap: 4px; }
 .row-btn { width: 32px; height: 32px; border-radius: 8px; color: var(--text-muted); display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
 .row-btn:hover { background: rgba(255,255,255,0.05); color: #fff; }
+
+.row-btn.star-toggle.is-active {
+  color: var(--accent-warning);
+}
+
+.row-btn.star-toggle:hover {
+  color: var(--accent-warning);
+  transform: scale(1.1);
+}
 
 .empty-state { padding: 5rem; text-align: center; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 1rem; }
 

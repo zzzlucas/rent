@@ -1,63 +1,19 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { 
-  Plus, 
-  Search, 
-  MoreVertical, 
-  Trash2, 
-  Edit3, 
+import {
+  Plus,
+  Search,
+  MoreVertical,
+  Trash2,
+  Edit3,
   Copy,
   ChevronRight,
   Info
 } from 'lucide-vue-next'
+import { useRouter } from 'vue-router'
+import { propertyTemplates as templates, activeApplyingTemplateId, showToast } from '../store'
 
-interface PropertyTemplate {
-  id: string
-  name: string
-  type: string
-  area: string
-  rent: number
-  deposit: number
-  paymentType: string
-  amenities: string[]
-  isDefault?: boolean
-}
-
-const templates = ref<PropertyTemplate[]>([
-  {
-    id: '1',
-    name: '精装大一居标准模板',
-    type: '一室一厅',
-    area: '45㎡',
-    rent: 3200,
-    deposit: 3200,
-    paymentType: '押一付一',
-    amenities: ['空调', '洗衣机', '冰箱', '热水器', '宽带', '床', '沙发'],
-    isDefault: true
-  },
-  {
-    id: '2',
-    name: '简约单间经济模板',
-    type: '单间',
-    area: '25㎡',
-    rent: 1800,
-    deposit: 1800,
-    paymentType: '押一付一',
-    amenities: ['空调', '洗衣机', '热水器', '床'],
-    isDefault: false
-  },
-  {
-    id: '3',
-    name: '豪华三居室模板',
-    type: '三室两厅',
-    area: '120㎡',
-    rent: 8500,
-    deposit: 17000,
-    paymentType: '押二付一',
-    amenities: ['全免家电', '智能门锁', '浴缸', '阳台', '车位'],
-    isDefault: false
-  }
-])
+const router = useRouter()
 
 const searchQuery = ref('')
 const isEditModalOpen = ref(false)
@@ -87,8 +43,10 @@ const saveTemplate = () => {
   const index = templates.value.findIndex(t => t.id === editingTemplate.value?.id)
   if (index !== -1) {
     templates.value[index] = { ...editingTemplate.value }
+    showToast('模板更新成功')
   } else {
     templates.value.push({ ...editingTemplate.value })
+    showToast('模板创建成功')
   }
   isEditModalOpen.value = false
 }
@@ -96,7 +54,13 @@ const saveTemplate = () => {
 const deleteTemplate = (id: string) => {
   if (confirm('确定要删除这个模板吗？')) {
     templates.value = templates.value.filter(t => t.id !== id)
+    showToast('模板已删除', 'warning')
   }
+}
+
+const applyToProperty = (templateId: string) => {
+  activeApplyingTemplateId.value = templateId
+  router.push('/grid') // Assuming '/grid' is the route name for BuildingGridView
 }
 </script>
 
@@ -163,7 +127,7 @@ const deleteTemplate = (id: string) => {
           <div class="payment-info">
             <Info :size="14" /> {{ tpl.paymentType }}
           </div>
-          <button class="apply-btn-shortcut">
+          <button class="apply-btn-shortcut" @click="applyToProperty(tpl.id)">
             应用到房源 <ChevronRight :size="16" />
           </button>
         </div>

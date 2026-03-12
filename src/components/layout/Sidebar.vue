@@ -9,12 +9,20 @@ import {
   ShieldCheck,
   FileText,
   Grid2X2,
-  Copy
+  Copy,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-vue-next'
+import { ref } from 'vue'
 
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
+const isCollapsed = ref(false)
+
+const toggleCollapse = () => {
+  isCollapsed.value = !isCollapsed.value
+}
 
 
 const navItems = [
@@ -30,13 +38,18 @@ const navItems = [
 </script>
 
 <template>
-  <aside class="sidebar">
+  <aside class="sidebar" :class="{ collapsed: isCollapsed }">
     <div class="logo-area">
       <div class="logo-icon">
         <ShieldCheck :size="28" color="#6366f1" />
       </div>
-      <span class="logo-text">RentMaster</span>
+      <span class="logo-text" v-if="!isCollapsed">RentMaster</span>
     </div>
+
+    <!-- Collapse Toggle Button -->
+    <button class="collapse-toggle" @click="toggleCollapse">
+      <component :is="isCollapsed ? ChevronRight : ChevronLeft" :size="14" />
+    </button>
 
     <nav class="nav-links">
       <router-link 
@@ -45,20 +58,21 @@ const navItems = [
         :to="{ name: item.id }"
         class="nav-item"
         :class="{ active: route.name === item.id }"
+        :title="isCollapsed ? item.label : ''"
       >
         <component :is="item.icon" :size="20" class="icon" />
-        <span class="label">{{ item.label }}</span>
+        <span class="label" v-if="!isCollapsed">{{ item.label }}</span>
       </router-link>
     </nav>
 
     <div class="sidebar-footer">
-      <router-link to="/settings" class="nav-item settings-btn" :class="{ active: route.name === 'settings' }">
+      <router-link to="/settings" class="nav-item settings-btn" :class="{ active: route.name === 'settings' }" :title="isCollapsed ? '系统设置' : ''">
         <Settings :size="20" class="icon" />
-        <span class="label">系统设置</span>
+        <span class="label" v-if="!isCollapsed">系统设置</span>
       </router-link>
       <div class="user-profile">
         <div class="avatar">L</div>
-        <div class="user-info">
+        <div class="user-info" v-if="!isCollapsed">
           <span class="username">Lucas</span>
           <span class="role">超级管理员</span>
         </div>
@@ -78,14 +92,50 @@ const navItems = [
   padding: 1.5rem 1rem;
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 500;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar.collapsed {
+  width: var(--sidebar-collapsed-width);
+  padding: 1.5rem 0.75rem;
+}
+
+.collapse-toggle {
+  position: absolute;
+  right: -12px;
+  top: 86px;
+  width: 24px;
+  height: 24px;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  z-index: 10;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+.collapse-toggle:hover {
+  background: var(--accent-primary);
+  color: #fff;
+  border-color: var(--accent-primary);
 }
 
 .logo-area {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.5rem 0.75rem 2rem;
+  padding: 0.25rem 0.75rem 1.75rem;
+  overflow: hidden;
+}
+
+.sidebar.collapsed .logo-area {
+  justify-content: center;
+  padding: 0.5rem 0 2.5rem;
 }
 
 .logo-text {
@@ -103,6 +153,28 @@ const navItems = [
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px; /* Space for scrollbar */
+  margin-right: -4px;
+}
+
+/* Custom subtle scrollbar for sidebar nav */
+.nav-links::-webkit-scrollbar {
+  width: 4px;
+}
+
+.nav-links::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.nav-links::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+.nav-links:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .nav-item {
@@ -115,6 +187,13 @@ const navItems = [
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   width: 100%;
   text-align: left;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.sidebar.collapsed .nav-item {
+  padding: 0.85rem;
+  justify-content: center;
 }
 
 .nav-item:hover {
@@ -142,7 +221,8 @@ const navItems = [
   border-top: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.25rem;
+  background: var(--bg-sidebar); /* Ensure background is solid when scrolled */
 }
 
 .user-profile {
@@ -152,6 +232,12 @@ const navItems = [
   padding: 0.75rem;
   background: rgba(255, 255, 255, 0.03);
   border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.sidebar.collapsed .user-profile {
+  padding: 0.5rem;
+  justify-content: center;
 }
 
 .avatar {
@@ -181,6 +267,8 @@ const navItems = [
 }
 
 @media (max-width: 1024px) {
+  .collapse-toggle { display: none; }
+  .sidebar.collapsed { width: 100%; padding: 0 1rem; }
   .sidebar {
     width: 100%;
     height: var(--mobile-nav-height);

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { X, Phone, Edit3, Check, Eye, EyeOff } from 'lucide-vue-next'
+import { X, Phone, Edit3, Check, Eye, EyeOff, ChevronRight, Star } from 'lucide-vue-next'
+import { propertyTemplates, activeApplyingTemplateId, showToast, followedPropertyIds, toggleFollowProperty } from '../../store'
 
 const selectedBlock = ref<'1' | '2'>('1')
 const selectedRoom = ref<any>(null)
@@ -252,43 +253,11 @@ const confirmPayment = () => {
   }
   
   isPaymentModalOpen.value = false
-  alert(`已确认收租 ¥${paymentAmount.value}。${paymentAmount.value < selectedRoom.value.rent ? '金额不足，已标记为待继续缴费。' : '本期已清。'}`)
+  showToast(`已确认收租 ¥${paymentAmount.value}。${paymentAmount.value < selectedRoom.value.rent ? '金额不足，已标记为待继续缴费。' : '本期已清。'}`)
 }
 
 // Template Logic
 const isTemplateModalOpen = ref(false)
-const propertyTemplates = ref([
-  {
-    id: '1',
-    name: '精装大一居标准模板',
-    type: '一室一厅',
-    area: '45㎡',
-    rent: 3200,
-    deposit: 3200,
-    paymentType: '押一付一',
-    amenities: ['空调', '洗衣机', '冰箱', '热水器', '宽带', '床', '沙发']
-  },
-  {
-    id: '2',
-    name: '简约单间经济模板',
-    type: '单间',
-    area: '25㎡',
-    rent: 1800,
-    deposit: 1800,
-    paymentType: '押一付一',
-    amenities: ['空调', '洗衣机', '热水器', '床']
-  },
-  {
-    id: '3',
-    name: '豪华三居室模板',
-    type: '三室两厅',
-    area: '120㎡',
-    rent: 8500,
-    deposit: 17000,
-    paymentType: '押二付一',
-    amenities: ['全免家电', '智能门锁', '浴缸', '阳台', '车位']
-  }
-])
 
 const applyTemplate = (tpl: any) => {
   tempRoomData.value.type = tpl.type
@@ -298,7 +267,49 @@ const applyTemplate = (tpl: any) => {
   tempRoomData.value.paymentType = tpl.paymentType
   tempRoomData.value.amenities = [...tpl.amenities]
   isTemplateModalOpen.value = false
-  alert(`已应用模板 "${tpl.name}"`)
+  showToast(`已应用模板 "${tpl.name}"`)
+}
+
+// Logic for batch apply from Template View
+if (activeApplyingTemplateId.value) {
+  const tpl = propertyTemplates.value.find(t => t.id === activeApplyingTemplateId.value)
+  if (tpl) {
+    isEditMode.value = true
+    // Clear the pending state after showing some feedback
+    setTimeout(() => {
+      showToast(`已载入模板 "${tpl.name}"。请勾选想要应用的房间，然后点击底部“确认批量应用”。`, 'info')
+    }, 500)
+  }
+}
+
+const batchApplyTemplate = () => {
+  const tpl = propertyTemplates.value.find(t => t.id === activeApplyingTemplateId.value)
+  if (!tpl || selectedRoomIds.value.size === 0) return
+  
+  // Update each selected room in buildingData
+  const ids = Array.from(selectedRoomIds.value)
+  ids.forEach(id => {
+    // Traverse buildingData to find the room
+    for (const blockId in buildingData.value) {
+      const floors = buildingData.value[blockId]
+      for (const floor of floors) {
+        const room = floor.rooms.find(r => r.id === id)
+        if (room) {
+          room.type = tpl.type
+          room.area = parseFloat(tpl.area) || 0
+          room.rent = tpl.rent
+          room.deposit = tpl.deposit
+          room.paymentType = tpl.paymentType
+          room.amenities = [...tpl.amenities]
+        }
+      }
+    }
+  })
+  
+  activeApplyingTemplateId.value = null
+  selectedRoomIds.value.clear()
+  isEditMode.value = false
+  showToast('批量应用模板成功！')
 }
 
 const toggleSmsQuick = () => {
@@ -344,6 +355,9 @@ const toggleSmsQuick = () => {
               <EyeOff :size="16" /> 设为非管理
             </button>
             <div class="divider-v"></div>
+            <button v-if="activeApplyingTemplateId" class="save-btn batch-tpl-btn" @click="batchApplyTemplate">
+               确认批量应用模板
+            </button>
             <button class="save-btn" @click="exitEditMode">
               <Check :size="16" /> 完成
             </button>
@@ -418,7 +432,17 @@ const toggleSmsQuick = () => {
               <span class="location-tag">{{ selectedBlock }}号楼 · {{ selectedRoom.type }}</span>
             </div>
           </div>
-          <button class="close-btn" @click="isDrawerOpen = false"><X :size="20" /></button>
+          <div class="header-right-btns">
+            <button 
+              class="icon-btn star-toggle" 
+              :class="{ 'is-active': followedPropertyIds.has(selectedRoom.id) }"
+              @click="toggleFollowProperty(selectedRoom.id)"
+              :title="followedPropertyIds.has(selectedRoom.id) ? '取消关注' : '加入关注清单'"
+            >
+              <Star :size="20" :fill="followedPropertyIds.has(selectedRoom.id) ? 'var(--accent-warning)' : 'none'" />
+            </button>
+            <button class="close-btn" @click="isDrawerOpen = false"><X :size="20" /></button>
+          </div>
         </div>
 
         <div class="drawer-body">
@@ -671,7 +695,7 @@ const toggleSmsQuick = () => {
   <!-- Template Selection Modal -->
   <div v-if="isTemplateModalOpen" class="modal-overlay" @click="isTemplateModalOpen = false">
     <div class="template-select-dialog glass card-animate-in" @click.stop>
-      <div class="modal-header">
+      <div class="dialog-header border-none">
         <h3>选择配置模板</h3>
         <button class="close-btn" @click="isTemplateModalOpen = false"><X :size="18" /></button>
       </div>
@@ -1350,6 +1374,26 @@ const toggleSmsQuick = () => {
 .btn-cancel { flex: 1; padding: 1rem; border-radius: 12px; background: rgba(255,255,255,0.05); color: var(--text-secondary); font-weight: 700; }
 .btn-save { flex: 2; padding: 1rem; border-radius: 12px; background: var(--accent-primary); color: #fff; font-weight: 700; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3); }
 
+.header-right-btns {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.star-toggle {
+  color: var(--text-muted);
+  transition: all 0.3s;
+}
+
+.star-toggle:hover {
+  color: var(--accent-warning);
+  transform: scale(1.15);
+}
+
+.star-toggle.is-active {
+  color: var(--accent-warning);
+}
+
 .close-btn { color: var(--text-muted); transition: color 0.2s; }
 .close-btn:hover { color: #fff; }
 
@@ -1444,35 +1488,40 @@ const toggleSmsQuick = () => {
 
 /* Template Modal Compact */
 .template-select-dialog {
-  width: 400px;
+  width: 440px;
   border-radius: 24px;
   background: #111114;
   border: 1px solid var(--glass-border);
   overflow: hidden;
+  padding-bottom: 1rem;
 }
 
+.border-none { border-bottom: none !important; }
+
 .template-list-compact {
-  padding: 1rem;
+  padding: 0 1.25rem 1rem;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 
 .tpl-item-compact {
-  padding: 1.25rem;
+  padding: 1.5rem;
   background: rgba(255,255,255,0.02);
   border-radius: 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   cursor: pointer;
-  border: 1px solid transparent;
-  transition: all 0.2s;
+  border: 1px solid rgba(255,255,255,0.05);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .tpl-item-compact:hover {
   background: rgba(255,255,255,0.05);
+  transform: translateY(-2px);
   border-color: var(--accent-primary);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
 .tpl-item-main { display: flex; flex-direction: column; gap: 4px; }

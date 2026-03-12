@@ -4,7 +4,8 @@ import Sidebar from './components/layout/Sidebar.vue'
 import Header from './components/layout/Header.vue'
 import propertyImg from './assets/property-thumb.png'
 import PropertyDetailModal from './components/property/PropertyDetailModal.vue'
-import { ArrowUpRight } from 'lucide-vue-next'
+import { ArrowUpRight, CheckCircle2, AlertCircle, Info, X } from 'lucide-vue-next'
+import { toasts } from './store'
 
 const selectedProperty = ref<any>(null)
 
@@ -75,6 +76,26 @@ const openProperty = (p: any) => {
       :property="selectedProperty" 
       @close="selectedProperty = null" 
     />
+
+    <!-- Global Toast Notifications -->
+    <div class="toast-container">
+      <TransitionGroup name="toast">
+        <div 
+          v-for="toast in toasts" 
+          :key="toast.id" 
+          class="toast-item glass" 
+          :class="toast.type"
+        >
+          <div class="toast-icon">
+            <CheckCircle2 v-if="toast.type === 'success'" :size="18" />
+            <AlertCircle v-else-if="toast.type === 'error'" :size="18" />
+            <AlertCircle v-else-if="toast.type === 'warning'" :size="18" />
+            <Info v-else :size="18" />
+          </div>
+          <span class="toast-message">{{ toast.message }}</span>
+        </div>
+      </TransitionGroup>
+    </div>
   </div>
 </template>
 
@@ -110,10 +131,63 @@ const openProperty = (p: any) => {
   }
 }
 
+/* Toast Styles */
+.toast-container {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  pointer-events: none;
+}
+
+.toast-item {
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 260px;
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 0 10px 25px -10px rgba(0,0,0,0.5);
+  pointer-events: auto;
+}
+
+.toast-item.success { border-left: 4px solid #10b981; color: #fff; }
+.toast-item.error { border-left: 4px solid #ef4444; color: #fff; }
+.toast-item.warning { border-left: 4px solid #f59e0b; color: #fff; }
+.toast-item.info { border-left: 4px solid #6366f1; color: #fff; }
+
+.toast-message { font-size: 0.9rem; font-weight: 600; }
+
+.toast-enter-active, .toast-leave-active {
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+.toast-enter-from { transform: translateX(100%) scale(0.9); opacity: 0; }
+.toast-leave-to { transform: translateX(100%) scale(0.9); opacity: 0; }
+
 .view-container {
-  max-width: 1600px;
+  max-width: 1240px;
   margin: 0 auto;
   width: 100%;
+  transition: max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 之前的大屏 (1280px+) */
+@media (min-width: 1280px) {
+  .view-container { max-width: 1280px; }
+}
+
+/* 新增：超宽屏/2K屏 (1536px+) */
+@media (min-width: 1536px) {
+  .view-container { max-width: 1480px; }
+}
+
+/* 新增：超大显示器 (1920px+) */
+@media (min-width: 1920px) {
+  .view-container { max-width: 1720px; }
 }
 
 .page-header {
