@@ -66,15 +66,37 @@ export const showToast = (message: string, type: Toast['type'] = 'success') => {
   }, 4000)
 }
 
-export const followedPropertyIds = ref<Set<string>>(new Set(['1', '2', '3', '4'])) // Pre-fill with mock data
+import { followRoom, unfollowRoom, getFollowedIds } from './api/follow'
 
-export const toggleFollowProperty = (id: string) => {
-  if (followedPropertyIds.value.has(id)) {
-    followedPropertyIds.value.delete(id)
-    showToast('已取消关注该房源', 'info')
-  } else {
-    followedPropertyIds.value.add(id)
-    showToast('已成功关注该房源', 'success')
+export const followedPropertyIds = ref<Set<string>>(new Set())
+
+export const syncFollows = async () => {
+  try {
+    const res = await getFollowedIds()
+    if (res.code === 0) {
+      followedPropertyIds.value = new Set(res.data.map((id: number) => id.toString()))
+    }
+  } catch (error) {
+    console.error('Failed to sync follows', error)
+  }
+}
+
+export const toggleFollowProperty = async (id: string | number) => {
+  const stringId = id.toString()
+  const numericId = Number(id)
+  const isFollowing = followedPropertyIds.value.has(stringId)
+  try {
+    if (isFollowing) {
+      await unfollowRoom(numericId)
+      followedPropertyIds.value.delete(stringId)
+      showToast('已取消关注该房源', 'info')
+    } else {
+      await followRoom(numericId)
+      followedPropertyIds.value.add(stringId)
+      showToast('已成功关注该房源', 'success')
+    }
+  } catch (error: any) {
+    showToast(error.message || '操作失败', 'error')
   }
 }
 

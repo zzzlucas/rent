@@ -67,9 +67,9 @@ const fetchBuildingData = async () => {
       }
     }
 
-    const roomsRes = await getRooms()
-    if (roomsRes.code === 0) {
-      const allRooms = roomsRes.data
+    const roomsRes = await getRooms({ pageSize: -1 })
+    if (roomsRes.code === 0 && roomsRes.data) {
+      const allRooms = Array.isArray(roomsRes.data) ? roomsRes.data : (roomsRes.data.list || [])
       const grouped: Record<string, Record<number, Room[]>> = {}
       
       allRooms.forEach((r: any) => {
@@ -250,11 +250,8 @@ const startResize = (e: MouseEvent) => {
 }
 
 const handleOverlayClick = () => {
-  // If drawer is stretched (width > 450), ignore overlay clicks to prevent accidental close
-  if (drawerWidth.value > 450) {
-    return
-  }
-  isDrawerOpen.value = false
+  // 保持开启，防止误触关闭丢失数据。仅能通过关闭按钮关闭。
+  return
 }
 
 const openPayment = () => {
@@ -1182,7 +1179,7 @@ const handleTerminateLease = async () => {
   padding: 1.5rem 2rem;
   display: flex;
   flex-direction: column;
-  gap: 2.5rem;
+  gap: 1.5rem;
 }
 
 .drawer-stats-grid {
@@ -1285,12 +1282,12 @@ const handleTerminateLease = async () => {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  margin-bottom: 2rem;
+  margin-bottom: 0.5rem;
 }
 
 .action-item {
   width: 100%;
-  padding: 0.75rem 1rem;
+  padding: 0.85rem 1rem;
   border-radius: 12px;
   font-weight: 700;
   display: flex;
@@ -1298,27 +1295,30 @@ const handleTerminateLease = async () => {
   justify-content: center;
   gap: 8px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border: 1px solid var(--border-color);
-  background: var(--bg-input);
+  background: var(--bg-surface);
   color: var(--text-primary);
-  font-size: 0.9rem;
+  font-size: 0.95rem;
 }
 
 .action-item:hover {
   background: var(--bg-card-hover);
-  transform: translateY(-1px);
+  border-color: var(--accent-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .action-item.primary {
   background: var(--accent-primary);
   color: white;
   border: none;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
 }
 
 .action-item.primary:hover {
-  filter: brightness(1.1);
+  background: #4f46e5;
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
 }
 
 .action-item.danger {
@@ -1328,8 +1328,10 @@ const handleTerminateLease = async () => {
 }
 
 .action-item.danger:hover {
-  background: rgba(239, 68, 68, 0.1);
+  background: #ef4444;
+  color: white;
   border-color: #ef4444;
+  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
 }
 
 .mini-switch {
@@ -1369,17 +1371,15 @@ const handleTerminateLease = async () => {
 }
 
 .pay-rent-btn {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: #fff;
-  padding: 1rem;
-  border-radius: 12px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
-  transition: transform 0.2s;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+  color: #fff !important;
+  border: none !important;
+  box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3) !important;
+}
+
+.pay-rent-btn:hover {
+  background: linear-gradient(135deg, #34d399 0%, #10b981 100%) !important;
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4) !important;
 }
 
 .pay-rent-btn.top-action {

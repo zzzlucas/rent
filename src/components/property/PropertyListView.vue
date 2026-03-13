@@ -32,14 +32,28 @@ const selectedRoom = ref<any>(null)
 // Data state
 const properties = ref<any[]>([])
 const isLoading = ref(false)
+const currentPage = ref(1)
+const pageSize = ref(15)
+const totalItems = ref(0)
+const totalPages = computed(() => Math.ceil(totalItems.value / pageSize.value))
 
 const fetchRooms = async () => {
   isLoading.value = true
   try {
-    const res = await getRooms()
-    if (res.code === 0 && Array.isArray(res.data)) {
+    const params: any = {
+      page: currentPage.value,
+      pageSize: pageSize.value,
+      search: searchQuery.value, // Add search query to params
+      status: statusFilter.value === 'all' ? undefined : statusFilter.value // Add status filter to params
+    }
+    // Note: Server-side search/filter would be better for UX
+    const res = await getRooms(params)
+    if (res.code === 0 && res.data) {
+      const { list, total } = res.data
+      totalItems.value = total
+      
       // Mapping backend Room to frontend format
-      properties.value = res.data.map((r: any) => {
+      properties.value = list.map((r: any) => {
         // Find active contract to get tenant info
         const activeLease = r.contracts?.find((c: any) => c.status === 1)
         return {
@@ -129,6 +143,40 @@ const calculateLeaseProgress = (start: string, end: string) => {
   return Math.round(((n - s) / (e - s)) * 100)
 }
 
+const paginationItems = computed(() => {
+  const items: (number | string)[] = []
+  const total = totalPages.value
+  const current = currentPage.value
+  
+  if (total <= 7) {
+    for (let i = 1; i <= total; i++) items.push(i)
+  } else {
+    items.push(1)
+    if (current > 4) items.push('...')
+    
+    const start = Math.max(2, current - 2)
+    const end = Math.min(total - 1, current + 2)
+    
+    for (let i = start; i <= end; i++) items.push(i)
+    
+    if (current < total - 3) items.push('...')
+    items.push(total)
+  }
+  return items
+})
+
+const handlePageChange = (page: number) => {
+  if (page < 1 || page > totalPages.value) return
+  currentPage.value = page
+  fetchRooms()
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+import { watch } from 'vue'
+watch([searchQuery, statusFilter], () => {
+  currentPage.value = 1
+  fetchRooms()
+})
 </script>
 
 <template>
@@ -289,6 +337,41 @@ const calculateLeaseProgress = (start: string, end: string) => {
         <AlertCircle :size="48" />
         <p>未找到匹配条件的房源数据</p>
       </div>
+
+      <!-- Pagination Footer -->
+      <div class="pagination-footer" v-if="totalItems > 0">
+        <div class="pg-info">
+          显示 {{ (currentPage - 1) * pageSize + 1 }} - {{ Math.min(currentPage * pageSize, totalItems) }} 
+          条，共 {{ totalItems }} 条
+        </div>
+        <div class="pg-controls">
+          <button 
+            class="pg-btn" 
+            :disabled="currentPage === 1" 
+            @click="handlePageChange(currentPage - 1)"
+          >上一页</button>
+          
+          <div class="pg-numbers">
+            <template v-for="(p, idx) in paginationItems" :key="idx">
+              <button 
+                v-if="typeof p === 'number'"
+                class="pg-num"
+                :class="{ active: currentPage === p }"
+                @click="handlePageChange(p)"
+              >
+                {{ p }}
+              </button>
+              <span v-else class="pg-dots">{{ p }}</span>
+            </template>
+          </div>
+
+          <button 
+            class="pg-btn" 
+            :disabled="currentPage === totalPages" 
+            @click="handlePageChange(currentPage + 1)"
+          >下一页</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -438,6 +521,68 @@ const calculateLeaseProgress = (start: string, end: string) => {
 }
 
 .empty-state { padding: 5rem; text-align: center; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+
+/* Pagination */
+.pagination-footer {
+  padding: 1rem 1.5rem;
+  background: var(--bg-input);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--border-color);
+}
+
+.pg-info { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; }
+.pg-controls { display: flex; align-items: center; gap: 1rem; }
+.pg-numbers { display: flex; gap: 0.5rem; }
+
+.pg-btn {
+  padding: 0.4rem 1rem;
+  border-radius: 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pg-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.pg-btn:not(:disabled):hover { border-color: var(--accent-primary); color: var(--accent-primary); }
+
+.pg-num {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pg-num.active {
+  background: var(--accent-primary);
+  color: white;
+  box-shadow: 0 4px 10px rgba(99, 102, 241, 0.3);
+}
+
+.pg-num:not(.active):hover {
+  background: var(--bg-surface);
+  border-color: var(--border-color);
+}
+
+.pg-dots {
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+}
 
 @keyframes slideIn { from { transform: translateY(-10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 

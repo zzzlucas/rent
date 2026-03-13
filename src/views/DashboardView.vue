@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import PropertyCard from '../components/property/PropertyCard.vue'
 import propertyImg from '../assets/property-thumb.png'
@@ -13,48 +13,41 @@ import {
   Coins, 
   Activity 
 } from 'lucide-vue-next'
+import { getFollowedRooms } from '../api/follow'
 import { followedPropertyIds } from '../store'
+
+// 监听关注列表的变化，变化时重新拉取数据
+watch(followedPropertyIds, () => {
+  fetchFollows()
+}, { deep: true })
 
 const router = useRouter()
 
-const mockProperties = [
-  {
-    id: '1',
-    title: '秀湖花苑 8号楼 1202',
-    address: '嘉兴市秀洲区秀洲路888号',
-    price: 3500,
-    status: 'occupied' as const,
-    thumbnail: propertyImg,
-    tenant: '张先生',
-    lastPaid: '03-01'
-  },
-  {
-    id: '2',
-    title: '秀湖花苑 12号楼 504',
-    address: '嘉兴市秀洲区秀洲路888号',
-    price: 4200,
-    status: 'vacant' as const,
-    thumbnail: propertyImg
-  },
-  {
-    id: '3',
-    title: '秀湖花苑 3号楼 201',
-    address: '嘉兴市秀洲区秀洲路888号',
-    price: 2800,
-    status: 'maintenance' as const,
-    thumbnail: propertyImg
-  },
-  {
-    id: '4',
-    title: '秀湖花苑 15号楼 1508',
-    address: '嘉兴市秀洲区秀洲路888号',
-    price: 5200,
-    status: 'occupied' as const,
-    thumbnail: propertyImg,
-    tenant: '李小姐',
-    lastPaid: '03-10'
+const realFollowedProperties = ref<any[]>([])
+
+const fetchFollows = async () => {
+  try {
+    const res = await getFollowedRooms()
+    if (res.code === 0) {
+      realFollowedProperties.value = res.data.map((room: any) => ({
+        id: room.id.toString(),
+        title: `${room.property?.name || '未知楼盘'} ${room.roomNumber}`,
+        address: room.property?.address || '坐标加载中...',
+        price: (room.rentPrice || 0) / 100,
+        status: room.status === 1 ? 'occupied' : (room.status === 2 ? 'maintenance' : 'vacant'),
+        thumbnail: propertyImg,
+        tenant: room.contracts?.[0]?.customer?.name,
+        lastPaid: room.contracts?.[0]?.createTime ? new Date(room.contracts[0].createTime).toLocaleDateString().slice(5) : undefined
+      }))
+    }
+  } catch (error) {
+    console.error('Failed to fetch followed rooms', error)
   }
-]
+}
+
+onMounted(() => {
+  fetchFollows()
+})
 
 const maintenanceRequests = [
   { id: 1, title: '空调不制冷', property: '秀湖花苑 8号楼 1202', date: '2小时前', priority: 'high' },
@@ -67,7 +60,7 @@ const navigateTo = (path: string) => {
 }
 
 const displayedFollowedProperties = computed(() => {
-  return mockProperties.filter(p => followedPropertyIds.value.has(p.id))
+  return realFollowedProperties.value
 })
 </script>
 

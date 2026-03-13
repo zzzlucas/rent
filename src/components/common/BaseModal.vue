@@ -20,7 +20,7 @@ const emit = defineEmits(['close'])
 <template>
   <Teleport to="body">
     <Transition name="modal-fade">
-      <div v-if="show" class="base-modal-overlay" @click.self="emit('close')">
+      <div v-if="show" class="base-modal-overlay">
         <div 
           class="base-modal-container glass animate-modal-in" 
           :style="{ maxWidth }"

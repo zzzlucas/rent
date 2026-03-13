@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
-import { User, Phone, CreditCard, FileText, Check, Loader2 } from 'lucide-vue-next'
+import { User, Phone, CreditCard, FileText, Check, Loader2, Users, Activity } from 'lucide-vue-next'
 import BaseModal from '../common/BaseModal.vue'
 import { createCustomer } from '../../api/property'
 import { showToast } from '../../store'
@@ -91,7 +91,7 @@ watch(() => props.show, (newVal) => {
         </div>
 
         <div class="form-item">
-          <label>性别</label>
+          <label><Users :size="14" /> 性别</label>
           <div class="radio-group">
             <label class="radio-label">
               <input type="radio" v-model="form.gender" :value="1" />
@@ -116,7 +116,7 @@ watch(() => props.show, (newVal) => {
         </div>
 
         <div class="form-item">
-          <label>初始状态</label>
+          <label><Activity :size="14" /> 初始状态</label>
           <select v-model="form.status" class="custom-select">
             <option :value="0">意向租客</option>
             <option :value="1">正式租客</option>

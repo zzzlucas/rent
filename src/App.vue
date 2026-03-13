@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import Sidebar from './components/layout/Sidebar.vue'
 import Header from './components/layout/Header.vue'
 import propertyImg from './assets/property-thumb.png'
 import PropertyDetailModal from './components/property/PropertyDetailModal.vue'
 import { ArrowUpRight, CheckCircle2, AlertCircle, Info, X } from 'lucide-vue-next'
-import { toasts } from './store'
+import { toasts, syncFollows } from './store'
+
+onMounted(() => {
+  syncFollows()
+})
 
 const selectedProperty = ref<any>(null)
 

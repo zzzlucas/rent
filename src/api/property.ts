@@ -13,9 +13,14 @@ export const deleteProperty = (id: number) => request(`/properties/${id}`, {
   method: 'DELETE'
 })
 
-export const getRooms = (propertyId?: number) => {
-  const url = propertyId ? `/rooms?propertyId=${propertyId}` : '/rooms'
-  return request(url)
+export const getRooms = (params: any = {}) => {
+  const query = new URLSearchParams()
+  Object.keys(params).forEach(key => {
+    if (params[key] !== undefined && params[key] !== null) {
+      query.append(key, params[key].toString())
+    }
+  })
+  return request(`/rooms?${query.toString()}`)
 }
 export const createRoom = (data: any) => request('/rooms', {
   method: 'POST',
