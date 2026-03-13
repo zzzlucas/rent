@@ -8,12 +8,26 @@ import {
   Edit3,
   Copy,
   ChevronRight,
-  Info
+  Info,
+  LayoutTemplate
 } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
-import { propertyTemplates as templates, activeApplyingTemplateId, showToast } from '../store'
+import { onMounted } from 'vue'
+import { 
+  propertyTemplates as templates, 
+  activeApplyingTemplateId, 
+  fetchTemplates,
+  saveTemplateAction,
+  deleteTemplateAction,
+  type PropertyTemplate
+} from '../store'
 
 const router = useRouter()
+
+onMounted(() => {
+  fetchTemplates()
+  activeApplyingTemplateId.value = null // Reset any pending application state
+})
 
 const searchQuery = ref('')
 const isEditModalOpen = ref(false)
@@ -24,7 +38,6 @@ const openEditTemplate = (template?: PropertyTemplate) => {
     editingTemplate.value = { ...template }
   } else {
     editingTemplate.value = {
-      id: Math.random().toString(36).substr(2, 9),
       name: '',
       type: '单间',
       area: '',
@@ -32,35 +45,29 @@ const openEditTemplate = (template?: PropertyTemplate) => {
       deposit: 0,
       paymentType: '押一付一',
       amenities: []
-    }
+    } as any
   }
   isEditModalOpen.value = true
 }
 
-const saveTemplate = () => {
+const saveTemplate = async () => {
   if (!editingTemplate.value) return
   
-  const index = templates.value.findIndex(t => t.id === editingTemplate.value?.id)
-  if (index !== -1) {
-    templates.value[index] = { ...editingTemplate.value }
-    showToast('模板更新成功')
-  } else {
-    templates.value.push({ ...editingTemplate.value })
-    showToast('模板创建成功')
+  const success = await saveTemplateAction(editingTemplate.value)
+  if (success) {
+    isEditModalOpen.value = false
   }
-  isEditModalOpen.value = false
 }
 
-const deleteTemplate = (id: string) => {
+const deleteTemplate = async (id: string | number) => {
   if (confirm('确定要删除这个模板吗？')) {
-    templates.value = templates.value.filter(t => t.id !== id)
-    showToast('模板已删除', 'warning')
+    await deleteTemplateAction(id)
   }
 }
 
 const applyToProperty = (templateId: string) => {
   activeApplyingTemplateId.value = templateId
-  router.push('/grid') // Assuming '/grid' is the route name for BuildingGridView
+  router.push('/building-grid')
 }
 </script>
 
@@ -84,15 +91,15 @@ const applyToProperty = (templateId: string) => {
       </div>
     </header>
 
-    <div class="template-grid">
+    <div v-if="templates.length > 0" class="template-grid">
       <div 
         v-for="tpl in templates" 
         :key="tpl.id"
         class="template-card glass card-animate-in"
       >
+        <span v-if="tpl.isDefault" class="default-badge">默认</span>
         <div class="card-header">
           <div class="tpl-info">
-            <span v-if="tpl.isDefault" class="default-badge">默认</span>
             <h3>{{ tpl.name }}</h3>
             <span class="tpl-type">{{ tpl.type }} · {{ tpl.area }}</span>
           </div>
@@ -134,9 +141,20 @@ const applyToProperty = (templateId: string) => {
       </div>
     </div>
 
+    <div v-else class="empty-state glass card-animate-in">
+      <div class="empty-icon-wrap">
+        <LayoutTemplate :size="48" class="empty-icon" />
+      </div>
+      <h2>暂无配置模板</h2>
+      <p>创建一个模板，帮助你快速完成整栋楼房源信息的批量配置</p>
+      <button class="add-btn-large" @click="openEditTemplate()">
+        <Plus :size="20" /> 立即创建第一个项目模板
+      </button>
+    </div>
+
     <!-- Edit/Add Modal (Glassmorphism) -->
-    <div v-if="isEditModalOpen" class="modal-overlay" @click="isEditModalOpen = false">
-      <div class="modal-content glass card-animate-in" @click.stop>
+    <div v-if="isEditModalOpen" class="modal-overlay">
+      <div class="modal-content glass card-animate-in">
         <div class="modal-header">
           <h2>{{ editingTemplate?.name ? '编辑模板' : '创建新模板' }}</h2>
           <button class="close-btn" @click="isEditModalOpen = false"><Plus style="transform: rotate(45deg)" /></button>
@@ -158,7 +176,10 @@ const applyToProperty = (templateId: string) => {
             </div>
             <div class="form-group">
               <label>面积</label>
-              <input v-model="editingTemplate!.area" type="text" placeholder="25㎡" />
+              <div class="input-with-unit">
+                <input v-model="editingTemplate!.area" type="text" placeholder="25" />
+                <span class="unit">㎡</span>
+              </div>
             </div>
           </div>
           <div class="form-grid">
@@ -175,7 +196,7 @@ const applyToProperty = (templateId: string) => {
             <label>配套设施</label>
             <div class="amenities-check-grid">
               <button 
-                v-for="a in ['空调', '洗衣机', '冰箱', '热水器', '宽带', '床', '沙发', '衣柜']" 
+                v-for="a in ['空调', '洗衣机', '冰箱', '热水器', '宽带', '床', '沙发', '衣柜', '书桌', '油烟机', '燃气灶', '微波炉', '智能锁', '餐桌', '电视', '阳台']" 
                 :key="a"
                 :class="{ active: editingTemplate!.amenities.includes(a) }"
                 @click="editingTemplate!.amenities.includes(a) 
@@ -254,6 +275,13 @@ const applyToProperty = (templateId: string) => {
   align-items: center;
   gap: 8px;
   box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.add-btn:hover {
+  background: #4f46e5;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
 }
 
 .template-grid {
@@ -263,6 +291,7 @@ const applyToProperty = (templateId: string) => {
 }
 
 .template-card {
+  position: relative;
   border-radius: 20px;
   overflow: hidden;
   border: 1px solid var(--glass-border);
@@ -288,14 +317,16 @@ const applyToProperty = (templateId: string) => {
 .tpl-type { font-size: 0.75rem; color: var(--text-muted); }
 
 .default-badge {
-  background: rgba(16, 185, 129, 0.1);
-  color: #10b981;
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: var(--accent-success);
+  color: white;
   font-size: 0.65rem;
   font-weight: 800;
-  padding: 2px 8px;
-  border-radius: 6px;
-  display: inline-block;
-  margin-bottom: 8px;
+  padding: 4px 12px;
+  border-radius: 0 0 12px 0;
+  z-index: 5;
 }
 
 .tpl-actions { display: flex; gap: 8px; }
@@ -339,7 +370,10 @@ const applyToProperty = (templateId: string) => {
   gap: 4px;
 }
 
-.apply-btn-shortcut:hover { color: var(--accent-primary); }
+.apply-btn-shortcut:hover { 
+  color: var(--accent-primary); 
+  transform: translateX(4px);
+}
 
 /* Modal Styles */
 .modal-overlay {
@@ -369,13 +403,31 @@ const applyToProperty = (templateId: string) => {
 
 .form-group { display: flex; flex-direction: column; gap: 8px; }
 .form-group label { font-size: 0.8rem; font-weight: 700; color: var(--text-muted); }
-.form-group input, .form-group select {
+.form-group input, .form-group select, .input-with-unit {
   background: var(--bg-input);
   border: 1px solid var(--border-color);
-  padding: 0.8rem 1rem;
   border-radius: 12px;
   color: var(--text-primary);
   outline: none;
+}
+.form-group input, .form-group select {
+  padding: 0.8rem 1rem;
+}
+
+.input-with-unit {
+  display: flex;
+  align-items: center;
+  padding-right: 1rem;
+}
+.input-with-unit input {
+  border: none;
+  background: transparent;
+  flex: 1;
+}
+.input-with-unit .unit {
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 0.9rem;
 }
 
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
@@ -407,6 +459,63 @@ const applyToProperty = (templateId: string) => {
 }
 .btn-cancel { flex: 1; padding: 0.8rem; border-radius: 12px; font-weight: 700; color: var(--text-muted); }
 .btn-submit { flex: 2; padding: 0.8rem; background: var(--accent-primary); color: #fff; border-radius: 12px; font-weight: 700; }
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6rem 2rem;
+  border-radius: 32px;
+  text-align: center;
+  border: 1px dashed var(--border-color);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.empty-icon-wrap {
+  width: 100px;
+  height: 100px;
+  background: var(--bg-input);
+  border-radius: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2rem;
+  color: var(--accent-primary);
+  box-shadow: 0 10px 30px rgba(99, 102, 241, 0.1);
+}
+
+.empty-state h2 {
+  font-size: 1.75rem;
+  font-weight: 800;
+  margin-bottom: 1rem;
+}
+
+.empty-state p {
+  color: var(--text-muted);
+  max-width: 400px;
+  margin-bottom: 2.5rem;
+  line-height: 1.6;
+}
+
+.add-btn-large {
+  background: var(--accent-primary);
+  color: #fff;
+  padding: 1rem 2.5rem;
+  border-radius: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 10px 25px rgba(99, 102, 241, 0.3);
+  transition: all 0.3s ease;
+}
+
+.add-btn-large:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 15px 35px rgba(99, 102, 241, 0.4);
+}
 
 .card-animate-in {
   animation: slideUp 0.4s cubic-bezier(0, 1, 0, 1);

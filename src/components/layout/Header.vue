@@ -37,10 +37,6 @@ const showRoomModal = ref(false)
     </div>
 
     <div class="header-actions">
-      <button class="icon-btn theme-toggle" @click="toggleTheme" title="切换主题">
-        <Sun v-if="theme === 'dark'" :size="20" />
-        <Moon v-else :size="20" />
-      </button>
 
       <div class="import-group">
         <button class="secondary-btn-header" @click="showImportModal = true">
@@ -73,10 +69,19 @@ const showRoomModal = ref(false)
       <TenantModal :show="showTenantModal" @close="showTenantModal = false" />
       <RoomModal :show="showRoomModal" @close="showRoomModal = false" />
 
-      <button class="icon-btn notification-btn">
-        <Bell :size="20" />
-        <span class="badge"></span>
-      </button>
+      <div class="divider-v"></div>
+
+      <div class="utility-actions">
+        <button class="icon-btn theme-toggle" @click="toggleTheme" title="切换主题">
+          <Sun v-if="theme === 'dark'" :size="20" />
+          <Moon v-else :size="20" />
+        </button>
+
+        <button class="icon-btn notification-btn">
+          <Bell :size="20" />
+          <span class="badge"></span>
+        </button>
+      </div>
     </div>
   </header>
 </template>
@@ -185,6 +190,19 @@ input::placeholder {
 
 .badge {
   border: 2px solid var(--bg-main);
+}
+
+.divider-v {
+  width: 1px;
+  height: 24px;
+  background: var(--border-color);
+  margin: 0 0.5rem;
+}
+
+.utility-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .secondary-btn-header {

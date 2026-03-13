@@ -5,8 +5,16 @@ import {
   LogIn, LogOut 
 } from 'lucide-vue-next'
 import AIAssistant from './AIAssistant.vue'
-import { propertyTemplates, activeApplyingTemplateId, showToast, followedPropertyIds, toggleFollowProperty } from '../../store'
-import { getProperties, getRooms, terminateLease } from '../../api/property'
+import { 
+  propertyTemplates, 
+  activeApplyingTemplateId, 
+  showToast, 
+  followedPropertyIds, 
+  toggleFollowProperty,
+  applyTemplateToRooms,
+  fetchTemplates
+} from '../../store'
+import { getProperties, getRooms, terminateLease, updateRoom } from '../../api/property'
 import LeaseModal from './LeaseModal.vue'
 
 const selectedBlock = ref<string>('')
@@ -83,9 +91,12 @@ const fetchBuildingData = async () => {
           number: r.roomNumber,
           area: r.area?.toString() || '0',
           status: r.status === 1 ? 'occupied' : r.status === 2 ? 'maintenance' : 'vacant',
-          type: r.towards ? `${r.towards}向` : '标准间',
+          type: r.roomType || (r.towards ? `${r.towards}向` : '标准间'),
           isManaged: true,
           rent: r.rentPrice / 100,
+          deposit: r.standardDeposit / 100,
+          paymentType: r.paymentType,
+          amenities: r.tags ? r.tags.split(',') : [],
           tenantName: activeLease?.customer?.name,
           tenantPhone: activeLease?.customer?.phone,
           tenantIdCard: activeLease?.customer?.idCard,
@@ -114,9 +125,7 @@ const fetchBuildingData = async () => {
   }
 }
 
-onMounted(() => {
-  fetchBuildingData()
-})
+// onMounted is now defined below
 
 const currentRooms = computed(() => buildingData.value[selectedBlock.value] || [])
 
@@ -152,20 +161,31 @@ const startEditing = () => {
   isDrawerEditing.value = true
 }
 
-const saveRoomDetail = () => {
+const saveRoomDetail = async () => {
   if (!tempRoomData.value) return
   
-  // Find and update the room in buildingData
-  const block = buildingData.value[selectedBlock.value]
-  for (const floor of block) {
-    const roomIndex = floor.rooms.findIndex(r => r.id === tempRoomData.value?.id)
-    if (roomIndex !== -1) {
-      floor.rooms[roomIndex] = { ...tempRoomData.value }
-      selectedRoom.value = { ...tempRoomData.value }
-      break
+  try {
+    const data = {
+      roomNumber: tempRoomData.value.number,
+      area: tempRoomData.value.area,
+      roomType: tempRoomData.value.type,
+      rentPrice: Math.round((tempRoomData.value.rent || 0) * 100),
+      standardDeposit: Math.round((tempRoomData.value.deposit || 0) * 100),
+      paymentType: tempRoomData.value.paymentType,
+      tags: tempRoomData.value.amenities?.join(','),
+      status: tempRoomData.value.status === 'occupied' ? 1 : tempRoomData.value.status === 'maintenance' ? 2 : 0,
+      remark: tempRoomData.value.remark
     }
+    
+    const res = await updateRoom(Number(tempRoomData.value.id), data)
+    if (res.code === 0) {
+      showToast('保存成功')
+      isDrawerEditing.value = false
+      fetchBuildingData()
+    }
+  } catch (error: any) {
+    showToast(error.message || '保存失败', 'error')
   }
-  isDrawerEditing.value = false
 }
 
 // Batch Editing Logic
@@ -201,6 +221,7 @@ const batchManage = (managed: boolean) => {
 const exitEditMode = () => {
   isEditMode.value = false
   selectedRoomIds.value.clear()
+  activeApplyingTemplateId.value = null
 }
 
 const blockStats = computed(() => {
@@ -295,46 +316,39 @@ const applyTemplate = (tpl: any) => {
   showToast(`已应用模板 "${tpl.name}"`)
 }
 
-// Logic for batch apply from Template View
-if (activeApplyingTemplateId.value) {
-  const tpl = propertyTemplates.value.find(t => t.id === activeApplyingTemplateId.value)
-  if (tpl) {
-    isEditMode.value = true
-    // Clear the pending state after showing some feedback
-    setTimeout(() => {
-      showToast(`已载入模板 "${tpl.name}"。请勾选想要应用的房间，然后点击底部“确认批量应用”。`, 'info')
-    }, 500)
-  }
-}
-
-const batchApplyTemplate = () => {
-  const tpl = propertyTemplates.value.find(t => t.id === activeApplyingTemplateId.value)
-  if (!tpl || selectedRoomIds.value.size === 0) return
+onMounted(async () => {
+  await fetchBuildingData()
   
-  // Update each selected room in buildingData
-  const ids = Array.from(selectedRoomIds.value)
-  ids.forEach(id => {
-    // Traverse buildingData to find the room
-    for (const blockId in buildingData.value) {
-      const floors = buildingData.value[blockId]
-      for (const floor of floors) {
-        const room = floor.rooms.find(r => r.id === id)
-        if (room) {
-          room.type = tpl.type
-          room.area = parseFloat(tpl.area) || 0
-          room.rent = tpl.rent
-          room.deposit = tpl.deposit
-          room.paymentType = tpl.paymentType
-          room.amenities = [...tpl.amenities]
-        }
-      }
+  // Logic for batch apply from Template View
+  if (activeApplyingTemplateId.value) {
+    // Ensure templates are loaded if not already
+    if (propertyTemplates.value.length === 0) {
+      await fetchTemplates()
     }
-  })
+    
+    const tpl = propertyTemplates.value.find(t => t.id.toString() === activeApplyingTemplateId.value?.toString())
+    if (tpl) {
+      isEditMode.value = true
+      setTimeout(() => {
+        showToast(`已载入模板 "${tpl.name}"。请勾选想要应用的房间，然后点击底部“确认批量应用”。`, 'info')
+      }, 500)
+    }
+  }
+})
+
+const batchApplyTemplate = async () => {
+  const tplId = activeApplyingTemplateId.value
+  if (!tplId || selectedRoomIds.value.size === 0) return
   
-  activeApplyingTemplateId.value = null
-  selectedRoomIds.value.clear()
-  isEditMode.value = false
-  showToast('批量应用模板成功！')
+  const roomIds = Array.from(selectedRoomIds.value).map(id => Number(id))
+  const success = await applyTemplateToRooms(tplId, roomIds)
+  
+  if (success) {
+    activeApplyingTemplateId.value = null
+    selectedRoomIds.value.clear()
+    isEditMode.value = false
+    fetchBuildingData()
+  }
 }
 
 const toggleSmsQuick = () => {
@@ -743,8 +757,8 @@ const handleTerminateLease = async () => {
   </div>
 
   <!-- Template Selection Modal -->
-  <div v-if="isTemplateModalOpen" class="modal-overlay" @click="isTemplateModalOpen = false">
-    <div class="template-select-dialog glass card-animate-in" @click.stop>
+  <div v-if="isTemplateModalOpen" class="modal-overlay">
+    <div class="template-select-dialog glass card-animate-in">
       <div class="dialog-header border-none">
         <h3>选择配置模板</h3>
         <button class="close-btn" @click="isTemplateModalOpen = false"><X :size="18" /></button>
@@ -767,8 +781,8 @@ const handleTerminateLease = async () => {
   </div>
 
   <!-- Quick Payment Dialog -->
-  <div v-if="isPaymentModalOpen" class="payment-modal-overlay" @click="isPaymentModalOpen = false">
-    <div class="payment-dialog glass card-animate-in" @click.stop>
+  <div v-if="isPaymentModalOpen" class="payment-modal-overlay">
+    <div class="payment-dialog glass card-animate-in">
       <div class="dialog-header">
         <h3>确认收租记录</h3>
         <button @click="isPaymentModalOpen = false"><X :size="18"/></button>
@@ -878,6 +892,11 @@ const handleTerminateLease = async () => {
   font-size: 0.85rem;
 }
 
+.block-selector button:hover:not(.active) {
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--accent-primary);
+}
+
 .block-selector button.active {
   background: var(--accent-primary);
   color: white;
@@ -896,6 +915,7 @@ const handleTerminateLease = async () => {
 }
 
 .edit-toggle-btn:hover {
+  background: var(--accent-primary);
   border-color: var(--accent-primary);
   color: white;
 }
@@ -927,8 +947,10 @@ const handleTerminateLease = async () => {
   font-weight: 600;
 }
 
-.action-btn.manage { color: var(--accent-success); background: rgba(16, 185, 129, 0.1); }
-.action-btn.unmanage { color: var(--text-muted); background: var(--bg-input); }
+.action-btn.manage { color: var(--accent-success); background: rgba(16, 185, 129, 0.1); transition: all 0.2s; }
+.action-btn.manage:hover { background: var(--accent-success); color: white; }
+.action-btn.unmanage { color: var(--text-muted); background: var(--bg-input); transition: all 0.2s; }
+.action-btn.unmanage:hover { background: var(--text-muted); color: white; }
 
 .save-btn {
   background: var(--accent-primary);
@@ -937,6 +959,13 @@ const handleTerminateLease = async () => {
   border-radius: 6px;
   font-weight: 700;
   font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.save-btn:hover {
+  background: #4f46e5;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
 }
 
 .legend-stats {
@@ -1496,7 +1525,22 @@ const handleTerminateLease = async () => {
 
 .drawer-footer-sticky { margin-top: auto; padding-top: 2rem; display: flex; gap: 1rem; position: sticky; bottom: 0; background: var(--bg-surface); }
 .btn-cancel { flex: 1; padding: 1rem; border-radius: 12px; background: rgba(255,255,255,0.05); color: var(--text-secondary); font-weight: 700; }
-.btn-save { flex: 2; padding: 1rem; border-radius: 12px; background: var(--accent-primary); color: #fff; font-weight: 700; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3); }
+.btn-save { 
+  flex: 2; 
+  padding: 1rem; 
+  border-radius: 12px; 
+  background: var(--accent-primary); 
+  color: #fff; 
+  font-weight: 700; 
+  box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3); 
+  transition: all 0.2s;
+}
+
+.btn-save:hover {
+  background: #4f46e5;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+}
 
 .header-right-btns {
   display: flex;
@@ -1598,7 +1642,21 @@ const handleTerminateLease = async () => {
 
 .dialog-footer { padding: 1.25rem; display: flex; gap: 10px; background: var(--bg-input); }
 .btn-cancel-plain { flex: 1; color: var(--text-muted); font-weight: 600; font-size: 0.9rem; }
-.btn-confirm-pay { flex: 2; background: var(--accent-primary); color: #fff; padding: 0.8rem; border-radius: 10px; font-weight: 700; }
+.btn-confirm-pay { 
+  flex: 2; 
+  background: var(--accent-primary); 
+  color: #fff; 
+  padding: 0.8rem; 
+  border-radius: 10px; 
+  font-weight: 700; 
+  transition: all 0.2s;
+}
+
+.btn-confirm-pay:hover {
+  background: #4f46e5;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+}
 
 .card-animate-in {
   animation: cardScaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);

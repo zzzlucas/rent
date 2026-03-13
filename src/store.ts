@@ -12,41 +12,7 @@ export interface PropertyTemplate {
   isDefault?: boolean
 }
 
-export const propertyTemplates = ref<PropertyTemplate[]>([
-  {
-    id: '1',
-    name: '精装大一居标准模板',
-    type: '一室一厅',
-    area: '45㎡',
-    rent: 3200,
-    deposit: 3200,
-    paymentType: '押一付一',
-    amenities: ['空调', '洗衣机', '冰箱', '热水器', '宽带', '床', '沙发'],
-    isDefault: true
-  },
-  {
-    id: '2',
-    name: '简约单间经济模板',
-    type: '单间',
-    area: '25㎡',
-    rent: 1800,
-    deposit: 1800,
-    paymentType: '押一付一',
-    amenities: ['空调', '洗衣机', '热水器', '床'],
-    isDefault: false
-  },
-  {
-    id: '3',
-    name: '豪华三居室模板',
-    type: '三室两厅',
-    area: '120㎡',
-    rent: 8500,
-    deposit: 17000,
-    paymentType: '押二付一',
-    amenities: ['全免家电', '智能门锁', '浴缸', '阳台', '车位'],
-    isDefault: false
-  }
-])
+export const propertyTemplates = ref<PropertyTemplate[]>([])
 
 export const activeApplyingTemplateId = ref<string | null>(null)
 
@@ -67,6 +33,71 @@ export const showToast = (message: string, type: Toast['type'] = 'success') => {
 }
 
 import { followRoom, unfollowRoom, getFollowedIds } from './api/follow'
+import { 
+  getPropertyTemplates, 
+  createPropertyTemplate, 
+  updatePropertyTemplate, 
+  deletePropertyTemplate,
+  applyPropertyTemplate
+} from './api/propertyTemplate'
+
+export const fetchTemplates = async () => {
+  try {
+    const res = await getPropertyTemplates()
+    if (res.code === 0) {
+      propertyTemplates.value = res.data
+    }
+  } catch (error) {
+    console.error('Failed to fetch templates', error)
+  }
+}
+
+export const saveTemplateAction = async (template: PropertyTemplate) => {
+  try {
+    let res
+    if (template.id && !isNaN(Number(template.id))) {
+      res = await updatePropertyTemplate(template.id, template)
+    } else {
+      const { id, ...data } = template
+      res = await createPropertyTemplate(data)
+    }
+    if (res.code === 0) {
+      await fetchTemplates()
+      showToast('模板保存成功')
+      return true
+    }
+  } catch (error: any) {
+    showToast(error.message || '保存失败', 'error')
+  }
+  return false
+}
+
+export const deleteTemplateAction = async (id: string | number) => {
+  try {
+    const res = await deletePropertyTemplate(id)
+    if (res.code === 0) {
+      await fetchTemplates()
+      showToast('模板已删除', 'warning')
+      return true
+    }
+  } catch (error: any) {
+    showToast(error.message || '删除失败', 'error')
+  }
+  return false
+}
+
+export const applyTemplateToRooms = async (templateId: string | number, roomIds: number[]) => {
+  try {
+    const res = await applyPropertyTemplate(templateId, roomIds)
+    if (res.code === 0) {
+      showToast('模板应用成功')
+      return true
+    }
+  } catch (error: any) {
+    showToast(error.message || '应用失败', 'error')
+  }
+  return false
+}
 
 export const followedPropertyIds = ref<Set<string>>(new Set())
 
@@ -116,9 +147,11 @@ export const toggleTheme = () => {
   applyTheme(nextTheme)
 }
 
-// Initialize theme
+// Initialize
 if (typeof document !== 'undefined') {
   document.documentElement.setAttribute('data-theme', theme.value)
+  fetchTemplates()
+  syncFollows()
 }
 
 // 催缴记录追踪状态 (Buried point tracking)
