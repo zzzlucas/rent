@@ -143,9 +143,9 @@ const historyList = computed(() => {
       </div>
     </div>
 
-    <!-- AI Assistant Placement (Custom Bottom-Left) -->
+    <!-- AI Assistant Placement (Right-Bottom) -->
     <div class="collection-ai-wrapper">
-      <AIAssistant :data="{ 
+      <AIAssistant type="collection" :data="{ 
         occupied: 10, 
         vacant: 2, 
         maintenance: 1, 
@@ -336,15 +336,15 @@ const historyList = computed(() => {
 
 /* AI Assistant Custom Position */
 .collection-ai-wrapper :deep(.ai-assistant-wrapper) {
-  left: 2rem;
-  right: auto;
+  right: 2rem;
+  left: auto;
   bottom: 2rem;
 }
 
 .collection-ai-wrapper :deep(.analysis-panel) {
-  left: 0;
-  right: auto;
-  transform-origin: bottom left;
+  right: 0;
+  left: auto;
+  transform-origin: bottom right;
 }
 
 .glass {

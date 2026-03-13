@@ -330,7 +330,7 @@ const aiResults = [
 .switch input { opacity: 0; width: 0; height: 0; }
 .slider {
   position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-  background-color: rgba(255,255,255,0.1); transition: .4s; border-radius: 34px;
+  background-color: var(--border-color); transition: .4s; border-radius: 34px;
 }
 .slider:before {
   position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px;
@@ -349,7 +349,7 @@ input:checked + .slider:before { transform: translateX(20px); background-color: 
   align-items: center;
   gap: 1rem;
   cursor: pointer;
-  background: var(--bg-card);
+  background: var(--bg-input);
 }
 .drop-zone:hover { border-color: var(--accent-primary); background: var(--bg-card-hover); }
 .drop-zone .highlight { color: var(--accent-primary); font-weight: 800; }

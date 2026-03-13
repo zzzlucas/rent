@@ -8,12 +8,14 @@ import {
   CheckCircle2, 
   Brain, 
   ArrowRight,
-  BarChart3,
   Bot,
-  SendHorizontal
+  SendHorizontal,
+  Zap,
+  Target
 } from 'lucide-vue-next'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
+  type?: 'asset' | 'collection'
   data: {
     occupied: number
     vacant: number
@@ -24,7 +26,9 @@ const props = defineProps<{
     payDanger: number
     total: number
   }
-}>()
+}>(), {
+  type: 'asset'
+})
 
 const isOpen = ref(false)
 const isAnalyzing = ref(false)
@@ -111,7 +115,7 @@ const analysisLogs = ref<string[]>([])
 
 // 对话逻辑 (Chat simulation)
 const chatMessages = ref([
-  { role: 'assistant', text: '您好！我是您的智能催收专家。我已经分析了刚才的回执记录，发现有位租客在 10 分钟内点击了 5 次链接但未支付，这通常意味着对方有支付压力但在犹豫。需要我生成一套温和的催收话术吗？' }
+  { role: 'assistant', text: '您好！我是您的催收小助理。我已经分析了刚才的回执记录，发现有位租客在 10 分钟内点击了 5 次链接但未支付，这通常意味着对方有支付压力但在犹豫。需要我生成一套温和的催收话术吗？' }
 ])
 const userMessage = ref('')
 
@@ -148,26 +152,31 @@ watch(() => props.data, () => {
     <!-- Floating Button -->
     <button 
       class="ai-float-btn" 
-      :class="{ active: isOpen }"
+      :class="[props.type, { active: isOpen }]"
       @click="togglePanel"
-      title="AI 智能分析"
+      :title="props.type === 'collection' ? '催收小助理在线分析' : 'AI 智能分析'"
     >
       <div class="btn-glow"></div>
-      <Sparkles v-if="!isOpen" :size="24" class="icon-pulse" />
+      <component 
+        v-if="!isOpen" 
+        :is="props.type === 'collection' ? Zap : Sparkles" 
+        :size="24" 
+        class="icon-pulse" 
+      />
       <X v-else :size="24" />
     </button>
 
     <!-- Analysis Panel -->
     <Transition name="panel">
-      <div v-if="isOpen" class="analysis-panel glass">
+      <div v-if="isOpen" class="analysis-panel glass" :class="props.type">
         <div class="panel-header">
           <div class="ai-brand">
             <div class="bot-icon">
-              <Bot :size="20" />
+              <component :is="props.type === 'collection' ? Target : Bot" :size="20" />
             </div>
             <div>
-              <h3>RentMaster AI</h3>
-              <p>智能资产运营助手</p>
+              <h3>{{ props.type === 'collection' ? 'RentMaster 催收小助理' : 'RentMaster AI' }}</h3>
+              <p>{{ props.type === 'collection' ? '专业链路回执与策略分析' : '智能资产运营助手' }}</p>
             </div>
           </div>
           <button class="close-panel" @click="isOpen = false">
@@ -263,7 +272,7 @@ watch(() => props.data, () => {
 
             <!-- Chat Interface -->
             <div class="chat-interface">
-               <div class="chat-header">对话 AI 专家</div>
+               <div class="chat-header">对话催收小助理</div>
                <div class="chat-scroll">
                   <div v-for="(m, i) in chatMessages" :key="i" class="chat-msg" :class="m.role">
                     {{ m.text }}
@@ -321,6 +330,15 @@ const formatSummary = (text: string) => {
 .ai-float-btn:hover {
   transform: scale(1.1) rotate(5deg);
   box-shadow: 0 12px 40px rgba(99, 102, 241, 0.6);
+}
+
+.ai-float-btn.collection {
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+  box-shadow: 0 8px 32px rgba(245, 158, 11, 0.4);
+}
+
+.ai-float-btn.collection .btn-glow {
+  background: linear-gradient(45deg, #f59e0b, #fbbf24, #f59e0b);
 }
 
 .ai-float-btn.active {
@@ -402,6 +420,35 @@ const formatSummary = (text: string) => {
   align-items: center;
   justify-content: center;
   color: white;
+}
+
+.analysis-panel.collection .bot-icon {
+  background: linear-gradient(135deg, #f59e0b, #fbbf24);
+}
+
+.analysis-panel.collection .score-section {
+  background: rgba(245, 158, 11, 0.05);
+  border-color: rgba(245, 158, 11, 0.1);
+}
+
+.analysis-panel.collection .circle {
+  stroke: #f59e0b;
+}
+
+.analysis-panel.collection .chat-header {
+  color: #f59e0b;
+}
+
+.analysis-panel.collection .chat-msg.user {
+  background: #f59e0b;
+}
+
+.analysis-panel.collection .chat-input-area button {
+  background: #f59e0b;
+}
+
+.analysis-panel.collection .action-btn-main {
+  background: #f59e0b;
 }
 
 .ai-brand h3 { font-size: 1rem; font-weight: 700; margin: 0; color: var(--text-primary); }

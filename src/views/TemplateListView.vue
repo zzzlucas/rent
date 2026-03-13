@@ -68,7 +68,7 @@ const applyToProperty = (templateId: string) => {
   <div class="template-view">
     <header class="view-header">
       <div class="title-section">
-        <h1 class="text-3xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+        <h1 class="text-3xl font-bold main-title">
           房源配置模板
         </h1>
         <p class="text-sm text-gray-500 mt-1">预设房源规格，一键应用到整个楼栋或单个房源</p>
@@ -201,7 +201,14 @@ const applyToProperty = (templateId: string) => {
   padding: 2rem;
   max-width: 1400px;
   margin: 0 auto;
-  color: #fff;
+  color: var(--text-primary);
+}
+
+.main-title {
+  background: var(--text-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .view-header {
@@ -218,7 +225,7 @@ const applyToProperty = (templateId: string) => {
 
 .search-box {
   position: relative;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-input);
   border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 0 1rem;
@@ -232,7 +239,7 @@ const applyToProperty = (templateId: string) => {
   background: transparent;
   border: none;
   outline: none;
-  color: #fff;
+  color: var(--text-primary);
   padding: 0.8rem 0;
   width: 100%;
 }
@@ -266,15 +273,15 @@ const applyToProperty = (templateId: string) => {
 
 .template-card:hover {
   transform: translateY(-8px);
-  border-color: rgba(99, 102, 241, 0.5);
-  box-shadow: 0 15px 35px rgba(0,0,0,0.4);
+  border-color: var(--accent-primary);
+  box-shadow: var(--glass-shadow);
 }
 
 .card-header {
   padding: 1.5rem;
   display: flex;
   justify-content: space-between;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .tpl-info h3 { font-size: 1.1rem; font-weight: 800; margin-bottom: 4px; }
@@ -299,7 +306,7 @@ const applyToProperty = (templateId: string) => {
   display: flex; align-items: center; justify-content: center;
   color: var(--text-muted);
 }
-.icon-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.icon-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
 .icon-btn.danger:hover { color: #f87171; background: rgba(248, 113, 113, 0.1); }
 
 .card-body { padding: 1.5rem; flex: 1; }
@@ -310,12 +317,12 @@ const applyToProperty = (templateId: string) => {
 
 .amenities-preview .label { font-size: 0.7rem; color: var(--text-muted); display: block; margin-bottom: 8px; }
 .amen-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.amen-tag { font-size: 0.65rem; background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); }
+.amen-tag { font-size: 0.65rem; background: var(--bg-input); padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-color); }
 .amen-tag.more { background: rgba(99, 102, 241, 0.1); color: var(--accent-primary); }
 
 .card-footer {
   padding: 1.25rem 1.5rem;
-  background: rgba(0,0,0,0.2);
+  background: var(--bg-input);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -326,7 +333,7 @@ const applyToProperty = (templateId: string) => {
 .apply-btn-shortcut {
   font-size: 0.75rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -349,9 +356,10 @@ const applyToProperty = (templateId: string) => {
 .modal-content {
   width: 500px;
   border-radius: 24px;
-  background: #111114;
+  background: var(--bg-surface);
   border: 1px solid var(--glass-border);
   overflow: hidden;
+  color: var(--text-primary);
 }
 
 .modal-header { padding: 1.5rem 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); }
@@ -362,11 +370,11 @@ const applyToProperty = (templateId: string) => {
 .form-group { display: flex; flex-direction: column; gap: 8px; }
 .form-group label { font-size: 0.8rem; font-weight: 700; color: var(--text-muted); }
 .form-group input, .form-group select {
-  background: rgba(255,255,255,0.03);
+  background: var(--bg-input);
   border: 1px solid var(--border-color);
   padding: 0.8rem 1rem;
   border-radius: 12px;
-  color: #fff;
+  color: var(--text-primary);
   outline: none;
 }
 
@@ -381,7 +389,7 @@ const applyToProperty = (templateId: string) => {
   font-size: 0.7rem;
   padding: 8px;
   border-radius: 8px;
-  background: rgba(255,255,255,0.03);
+  background: var(--bg-input);
   border: 1px solid var(--border-color);
   color: var(--text-muted);
 }
@@ -393,7 +401,7 @@ const applyToProperty = (templateId: string) => {
 
 .modal-footer {
   padding: 1.5rem 2rem;
-  background: rgba(0,0,0,0.2);
+  background: var(--bg-input);
   display: flex;
   gap: 1rem;
 }

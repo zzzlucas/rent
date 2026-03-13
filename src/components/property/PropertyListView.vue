@@ -288,7 +288,7 @@ const showImportModal = ref(false)
 .filter-pills { display: flex; gap: 6px; }
 .filter-pills button { 
   font-size: 0.8rem; padding: 6px 14px; border-radius: 20px; 
-  background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); color: var(--text-muted);
+  background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-muted);
 }
 .filter-pills button.active { background: var(--accent-primary); color: #fff; border-color: var(--accent-primary); }
 
@@ -387,7 +387,7 @@ const showImportModal = ref(false)
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-input);
   padding: 0.6rem 1rem;
   border-radius: var(--radius-md);
   width: 320px;
@@ -396,7 +396,7 @@ const showImportModal = ref(false)
 .search-box input {
   background: none;
   border: none;
-  color: white;
+  color: var(--text-primary);
   outline: none;
   width: 100%;
 }
@@ -429,7 +429,7 @@ select option {
 
 .view-toggle {
   display: flex;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-input);
   padding: 0.25rem;
   border-radius: var(--radius-sm);
 }
@@ -461,7 +461,7 @@ select option {
 }
 
 .secondary-btn {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-input);
   color: var(--text-primary);
   padding: 0.6rem 1.2rem;
   border-radius: var(--radius-md);
@@ -492,7 +492,7 @@ select option {
 .data-table th {
   text-align: left;
   padding: 1.25rem 1.5rem;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--bg-input);
   color: var(--text-muted);
   font-size: 0.85rem;
   font-weight: 600;

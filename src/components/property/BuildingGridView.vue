@@ -848,7 +848,7 @@ const toggleSmsQuick = () => {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-input);
   padding: 0.25rem 0.5rem;
   border-radius: 10px;
   border: 1px dashed var(--accent-primary);
@@ -872,7 +872,7 @@ const toggleSmsQuick = () => {
 }
 
 .action-btn.manage { color: var(--accent-success); background: rgba(16, 185, 129, 0.1); }
-.action-btn.unmanage { color: var(--text-muted); background: rgba(255, 255, 255, 0.05); }
+.action-btn.unmanage { color: var(--text-muted); background: var(--bg-input); }
 
 .save-btn {
   background: var(--accent-primary);
@@ -1130,7 +1130,7 @@ const toggleSmsQuick = () => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
-  background: rgba(255,255,255,0.02);
+  background: var(--bg-input);
   padding: 1.5rem;
   border-radius: 16px;
   border: 1px solid var(--glass-border);
@@ -1172,7 +1172,7 @@ const toggleSmsQuick = () => {
 .gender-tag { font-size: 0.8rem; font-weight: 800; }
 .gender-tag.male { color: #3b82f6; }
 .gender-tag.female { color: #ec4899; }
-.t-tag { font-size: 0.65rem; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; color: var(--text-secondary); width: fit-content; margin-top: 4px; }
+.t-tag { font-size: 0.65rem; background: var(--bg-input); padding: 2px 6px; border-radius: 4px; color: var(--text-secondary); width: fit-content; margin-top: 4px; }
 
 .t-contact { display: flex; flex-direction: column; gap: 8px; }
 .contact-btn { background: var(--bg-surface); color: var(--text-primary); font-size: 0.8rem; font-weight: 700; padding: 0.6rem; border-radius: 10px; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; border: 1px solid var(--border-color); }
@@ -1182,18 +1182,18 @@ const toggleSmsQuick = () => {
   margin-top: 1.25rem;
   padding: 1rem 1.25rem;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--bg-input);
   display: flex;
   align-items: center;
   justify-content: space-between;
   cursor: pointer;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
   transition: all 0.2s;
 }
 
 .sms-quick-toggle:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(99, 102, 241, 0.2);
+  background: var(--bg-card-hover);
+  border-color: var(--accent-primary);
 }
 
 .sms-quick-toggle.active {
@@ -1211,7 +1211,7 @@ const toggleSmsQuick = () => {
 }
 
 .sms-quick-toggle.active .sms-label {
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .dot-indicator {
@@ -1225,7 +1225,7 @@ const toggleSmsQuick = () => {
 .mini-switch {
   width: 36px;
   height: 20px;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--border-color);
   border-radius: 20px;
   position: relative;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1238,17 +1238,17 @@ const toggleSmsQuick = () => {
   left: 2px;
   width: 16px;
   height: 16px;
-  background: #fff;
+  background: var(--bg-surface);
   border-radius: 50%;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .mini-switch.on { background: var(--accent-primary); }
 .mini-switch.on::after { left: 18px; }
 
 .remark-content {
-  background: rgba(255,255,255,0.02);
+  background: var(--bg-input);
   padding: 1.25rem;
   border-radius: 12px;
   font-size: 0.85rem;
@@ -1279,7 +1279,7 @@ const toggleSmsQuick = () => {
 .pay-rent-btn:hover { transform: translateY(-2px); }
 
 .amenities-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr)); gap: 8px; }
-.amen-item { font-size: 0.7rem; padding: 6px; text-align: center; border-radius: 6px; background: rgba(255,255,255,0.03); color: var(--text-muted); border: 1px solid var(--border-color); }
+.amen-item { font-size: 0.7rem; padding: 6px; text-align: center; border-radius: 6px; background: var(--bg-input); color: var(--text-muted); border: 1px solid var(--border-color); }
 .amen-item.active { border-color: rgba(99, 102, 241, 0.3); color: var(--accent-primary); background: rgba(99, 102, 241, 0.05); }
 
 /* Edit Mode Styles */
@@ -1339,7 +1339,7 @@ const toggleSmsQuick = () => {
 .radio-pill-group button.active { background: var(--accent-primary); color: #fff; border-color: var(--accent-primary); }
 
 .status-selector-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.status-pill { padding: 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; background: rgba(255,255,255,0.03); border: 1px solid transparent; color: var(--text-muted); }
+.status-pill { padding: 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; background: var(--bg-input); border: 1px solid var(--border-color); color: var(--text-muted); }
 .status-pill.active.vacant { background: var(--accent-success); color: #fff; }
 .status-pill.active.occupied { background: #475569; color: #fff; }
 .status-pill.active.maintenance { background: var(--accent-danger); color: #fff; }
@@ -1349,15 +1349,16 @@ const toggleSmsQuick = () => {
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
-  background: rgba(255,255,255,0.03);
+  background: var(--bg-input);
   border-radius: 12px;
+  border: 1px solid var(--border-color);
   cursor: pointer;
 }
 
 .switch {
   width: 44px;
   height: 24px;
-  background: #334155;
+  background: var(--border-color);
   border-radius: 12px;
   position: relative;
   transition: all 0.3s;
@@ -1370,7 +1371,7 @@ const toggleSmsQuick = () => {
   left: 2px;
   width: 20px;
   height: 20px;
-  background: #fff;
+  background: var(--bg-surface);
   border-radius: 50%;
   transition: all 0.3s;
 }
@@ -1485,7 +1486,7 @@ const toggleSmsQuick = () => {
   margin-top: 8px;
 }
 
-.dialog-footer { padding: 1.25rem; display: flex; gap: 10px; background: rgba(0,0,0,0.2); }
+.dialog-footer { padding: 1.25rem; display: flex; gap: 10px; background: var(--bg-input); }
 .btn-cancel-plain { flex: 1; color: var(--text-muted); font-weight: 600; font-size: 0.9rem; }
 .btn-confirm-pay { flex: 2; background: var(--accent-primary); color: #fff; padding: 0.8rem; border-radius: 10px; font-weight: 700; }
 
@@ -1520,18 +1521,18 @@ const toggleSmsQuick = () => {
 
 .tpl-item-compact {
   padding: 1.5rem;
-  background: rgba(255,255,255,0.02);
+  background: var(--bg-input);
   border-radius: 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   cursor: pointer;
-  border: 1px solid rgba(255,255,255,0.05);
+  border: 1px solid var(--border-color);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .tpl-item-compact:hover {
-  background: rgba(255,255,255,0.05);
+  background: var(--bg-card-hover);
   transform: translateY(-2px);
   border-color: var(--accent-primary);
   box-shadow: 0 4px 12px rgba(0,0,0,0.2);
@@ -1555,5 +1556,5 @@ const toggleSmsQuick = () => {
 /* Scrollbar Style */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
 </style>

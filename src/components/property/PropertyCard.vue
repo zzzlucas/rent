@@ -96,7 +96,7 @@ const getStatusLabel = (status: string) => {
   font-size: 0.75rem;
   font-weight: 700;
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--border-color);
 }
 
 .status-badge.occupied {
@@ -173,7 +173,7 @@ const getStatusLabel = (status: string) => {
 }
 
 .glass {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--glass-bg);
   backdrop-filter: blur(12px);
 }
 </style>
