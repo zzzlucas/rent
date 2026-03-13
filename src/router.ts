@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import type { RouteRecordRaw } from 'vue-router'
 
-const routes = [
+const routes: RouteRecordRaw[] = [
   {
     path: '/',
     redirect: '/dashboard'
@@ -59,12 +60,26 @@ const routes = [
     path: '/p/:id',
     name: 'public_payment',
     component: () => import('./views/PublicPaymentView.vue')
+  },
+  {
+    path: '/login',
+    name: 'login',
+    component: () => import('./views/LoginView.vue')
   }
 ]
 
 const router = createRouter({
   history: createWebHistory(),
   routes
+})
+
+router.beforeEach((to, from, next) => {
+  const token = localStorage.getItem('token')
+  if (to.name !== 'login' && !token && to.name !== 'public_payment') {
+    next({ name: 'login' })
+  } else {
+    next()
+  }
 })
 
 export default router

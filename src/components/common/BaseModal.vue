@@ -60,7 +60,7 @@ const emit = defineEmits(['close'])
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: var(--overlay-bg);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
@@ -103,7 +103,7 @@ const emit = defineEmits(['close'])
 .subtitle {
   margin: 4px 0 0;
   font-size: 0.85rem;
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .close-btn {
@@ -136,8 +136,8 @@ const emit = defineEmits(['close'])
 
 .base-modal-footer {
   padding: 1.5rem 2rem;
-  background: rgba(255, 255, 255, 0.02);
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--bg-card-hover);
+  border-top: 1px solid var(--border-color);
   flex-shrink: 0;
 }
 

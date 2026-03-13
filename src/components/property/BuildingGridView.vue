@@ -1,26 +1,34 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { X, Phone, Edit3, Check, Eye, EyeOff, ChevronRight, Star, Wallet, Copy } from 'lucide-vue-next'
+import { ref, computed, onMounted } from 'vue'
+import { 
+  X, Phone, Edit3, Check, Eye, EyeOff, ChevronRight, Star, Wallet, Copy, 
+  LogIn, LogOut 
+} from 'lucide-vue-next'
 import AIAssistant from './AIAssistant.vue'
 import { propertyTemplates, activeApplyingTemplateId, showToast, followedPropertyIds, toggleFollowProperty } from '../../store'
+import { getProperties, getRooms, terminateLease } from '../../api/property'
+import LeaseModal from './LeaseModal.vue'
 
-const selectedBlock = ref<'1' | '2'>('1')
+const selectedBlock = ref<string>('')
 const selectedRoom = ref<any>(null)
 const isDrawerOpen = ref(false)
 const isEditMode = ref(false)
 const selectedRoomIds = ref<Set<string>>(new Set())
 const isDrawerEditing = ref(false)
 const tempRoomData = ref<Room | null>(null)
+const isLoading = ref(false)
+const showLeaseModal = ref(false)
 
 // Room data structure with 'isManaged' flag
 interface Room {
   id: string
   number: string
-  area: string
+  area: string | number
   status: 'vacant' | 'occupied' | 'maintenance'
   type: string
   isManaged: boolean
   paymentStatus?: 'normal' | 'near_due' | 'overdue'
+  amenities?: string[]
   // Tenant details
   tenantName?: string
   tenantPhone?: string
@@ -36,6 +44,8 @@ interface Room {
   paymentType?: string // e.g., '押一付一'
   checkInDate?: string
   leaseEndDate?: string
+  activeLeaseId?: number
+  raw?: any
 }
 
 interface FloorData {
@@ -43,55 +53,72 @@ interface FloorData {
   rooms: Room[]
 }
 
-// Generate mock room data
-const generateRooms = (block: string) => {
-  const floors: FloorData[] = []
-  for (let f = 20; f >= 1; f--) {
-    const floorRooms: Room[] = []
-    for (let r = 1; r <= 28; r++) {
-      const roomNum = `${f}${r < 10 ? '0' + r : r}`
-      const random = Math.random()
-      let status: 'vacant' | 'occupied' | 'maintenance' = 'occupied'
-      if (random > 0.8) status = 'vacant'
-      else if (random > 0.95) status = 'maintenance'
-      
-      const isOccupied = status === 'occupied'
-      
-      floorRooms.push({
-        id: `${block}-${roomNum}`,
-        number: roomNum,
-        area: (Math.random() * 40 + 60).toFixed(2),
-        status,
-        type: r % 4 === 0 ? '大套间' : '标准间',
-        isManaged: Math.random() > 0.3,
-        // Mock lease data
-        rent: Math.floor(Math.random() * 3000 + 2000),
-        deposit: Math.floor(Math.random() * 3000 + 2000),
-        paymentType: Math.random() > 0.5 ? '押一付一' : '押一付三',
-        checkInDate: isOccupied ? '2023-10-15' : undefined,
-        leaseEndDate: isOccupied ? '2024-10-14' : undefined,
-        paymentStatus: isOccupied ? (random < 0.4 ? 'normal' : random < 0.6 ? 'near_due' : 'overdue') : undefined,
-        tenantName: isOccupied ? '张大壮' : undefined,
-        tenantPhone: isOccupied ? '13800138000' : undefined,
-        tenantIdCard: isOccupied ? '330421199001011234' : undefined,
-        tenantGender: isOccupied ? (Math.random() > 0.5 ? 'male' : 'female') : undefined,
-        hasPets: isOccupied ? Math.random() > 0.8 : false,
-        remark: '租客比较爱干净，按时交租。',
-        smsReminder: true
-      })
+const buildingData = ref<Record<string, FloorData[]>>({})
+const propertiesList = ref<any[]>([])
+
+const fetchBuildingData = async () => {
+  isLoading.value = true
+  try {
+    const propsRes = await getProperties()
+    if (propsRes.code === 0) {
+      propertiesList.value = propsRes.data
+      if (propertiesList.value.length > 0 && !selectedBlock.value) {
+        selectedBlock.value = propertiesList.value[0].id.toString()
+      }
     }
-    floors.push({ floor: f, rooms: floorRooms })
+
+    const roomsRes = await getRooms()
+    if (roomsRes.code === 0) {
+      const allRooms = roomsRes.data
+      const grouped: Record<string, Record<number, Room[]>> = {}
+      
+      allRooms.forEach((r: any) => {
+        const pId = r.propertyId.toString()
+        if (!grouped[pId]) grouped[pId] = {}
+        if (!grouped[pId][r.floor]) grouped[pId][r.floor] = []
+        
+        const activeLease = r.contracts?.find((c: any) => c.status === 1)
+        grouped[pId][r.floor].push({
+          id: r.id.toString(),
+          number: r.roomNumber,
+          area: r.area?.toString() || '0',
+          status: r.status === 1 ? 'occupied' : r.status === 2 ? 'maintenance' : 'vacant',
+          type: r.towards ? `${r.towards}向` : '标准间',
+          isManaged: true,
+          rent: r.rentPrice / 100,
+          tenantName: activeLease?.customer?.name,
+          tenantPhone: activeLease?.customer?.phone,
+          tenantIdCard: activeLease?.customer?.idCard,
+          activeLeaseId: activeLease?.id,
+          raw: r, // Keep raw for modal
+          paymentStatus: 'normal'
+        })
+      })
+
+      // Convert to FloorData[] format
+      const finalData: Record<string, FloorData[]> = {}
+      Object.keys(grouped).forEach(pId => {
+        const floors = Object.keys(grouped[pId]).map(f => ({
+          floor: parseInt(f),
+          rooms: grouped[pId][parseInt(f)].sort((a, b) => a.number.localeCompare(b.number))
+        })).sort((a, b) => b.floor - a.floor)
+        finalData[pId] = floors
+      })
+      
+      buildingData.value = finalData
+    }
+  } catch (error: any) {
+    showToast(error.message || '加载房源数据失败', 'error')
+  } finally {
+    isLoading.value = false
   }
-  return floors
 }
 
-// State management for building data
-const buildingData = ref({
-  '1': generateRooms('1'),
-  '2': generateRooms('2')
+onMounted(() => {
+  fetchBuildingData()
 })
 
-const currentRooms = computed(() => buildingData.value[selectedBlock.value])
+const currentRooms = computed(() => buildingData.value[selectedBlock.value] || [])
 
 const getStatusClass = (room: Room) => {
   if (!room.isManaged) return 'status-unmanaged'
@@ -316,15 +343,26 @@ const batchApplyTemplate = () => {
 const toggleSmsQuick = () => {
   if (!selectedRoom.value) return
   selectedRoom.value.smsReminder = !selectedRoom.value.smsReminder
+  // ... rest of logic
+}
+
+const openLease = () => {
+  showLeaseModal.value = true
+}
+
+const handleTerminateLease = async () => {
+  if (!selectedRoom.value?.activeLeaseId) return
+  if (!confirm(`确认要为 ${selectedRoom.value.number} 办理退租吗？将终止当前合同。`)) return
   
-  // Sync to source data
-  const block = buildingData.value[selectedBlock.value]
-  for (const floor of block) {
-    const roomIndex = floor.rooms.findIndex(r => r.id === selectedRoom.value.id)
-    if (roomIndex !== -1) {
-      floor.rooms[roomIndex].smsReminder = selectedRoom.value.smsReminder
-      break
+  try {
+    const res = await terminateLease(selectedRoom.value.activeLeaseId)
+    if (res.code === 0) {
+      showToast('退租办理成功', 'success')
+      isDrawerOpen.value = false
+      fetchBuildingData()
     }
+  } catch (error: any) {
+    showToast(error.message || '操作失败', 'error')
   }
 }
 </script>
@@ -341,8 +379,14 @@ const toggleSmsQuick = () => {
         </div>
         <div class="controls-row">
           <div class="block-selector">
-            <button :class="{ active: selectedBlock === '1' }" @click="selectedBlock = '1'">1号楼</button>
-            <button :class="{ active: selectedBlock === '2' }" @click="selectedBlock = '2'">2号楼</button>
+            <button 
+              v-for="p in propertiesList" 
+              :key="p.id"
+              :class="{ active: selectedBlock === p.id.toString() }" 
+              @click="selectedBlock = p.id.toString()"
+            >
+              {{ p.name }}
+            </button>
           </div>
           <button v-if="!isEditMode" class="edit-toggle-btn" @click="isEditMode = true">
             <Edit3 :size="16" /> 批量编辑房源
@@ -447,9 +491,17 @@ const toggleSmsQuick = () => {
         </div>
 
         <div class="drawer-body">
-          <button v-if="!isDrawerEditing && selectedRoom.status === 'occupied'" class="pay-rent-btn top-action" @click="openPayment">
-            <Wallet :size="16" /> 登记本月收租
-          </button>
+          <div v-if="!isDrawerEditing" class="top-action-group">
+            <button v-if="selectedRoom.status === 'occupied'" class="pay-rent-btn action-item" @click="openPayment">
+              <Wallet :size="16" /> 登记本月收租
+            </button>
+            <button v-if="selectedRoom.status === 'vacant'" class="pay-rent-btn action-item primary" @click="openLease">
+              <LogIn :size="16" /> 办理签约入住
+            </button>
+            <button v-if="selectedRoom.status === 'occupied'" class="pay-rent-btn action-item danger" @click="handleTerminateLease">
+              <LogOut :size="16" /> 办理退租
+            </button>
+          </div>
 
           <!-- View Mode -->
           <template v-if="!isDrawerEditing">
@@ -761,6 +813,13 @@ const toggleSmsQuick = () => {
 
   <!-- AI Assistant -->
   <AIAssistant :data="blockStats" />
+
+  <LeaseModal 
+    :show="showLeaseModal" 
+    :room="selectedRoom?.raw" 
+    @close="showLeaseModal = false" 
+    @success="fetchBuildingData(); isDrawerOpen = false" 
+  />
 </template>
 
 <style scoped>
@@ -1220,6 +1279,57 @@ const toggleSmsQuick = () => {
   border-radius: 50%;
   background: var(--accent-primary);
   box-shadow: 0 0 10px var(--accent-primary);
+}
+
+.top-action-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+.action-item {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid var(--border-color);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.action-item:hover {
+  background: var(--bg-card-hover);
+  transform: translateY(-1px);
+}
+
+.action-item.primary {
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+}
+
+.action-item.primary:hover {
+  filter: brightness(1.1);
+}
+
+.action-item.danger {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.action-item.danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: #ef4444;
 }
 
 .mini-switch {

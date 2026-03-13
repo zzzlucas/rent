@@ -14,10 +14,14 @@ import {
 } from 'lucide-vue-next'
 import DataImportModal from '../property/DataImportModal.vue'
 import DebtCollectionModal from '../property/DebtCollectionModal.vue'
+import TenantModal from '../property/TenantModal.vue'
+import RoomModal from '../property/RoomModal.vue'
 import { theme, toggleTheme } from '../../store'
 
 const showImportModal = ref(false)
 const showDebtModal = ref(false)
+const showTenantModal = ref(false)
+const showRoomModal = ref(false)
 </script>
 
 <template>
@@ -49,7 +53,7 @@ const showDebtModal = ref(false)
         </div>
       </div>
 
-      <button class="secondary-btn-header">
+      <button class="secondary-btn-header" @click="showTenantModal = true">
         <UserPlus :size="16" />
         <span>登记新租客</span>
       </button>
@@ -59,13 +63,15 @@ const showDebtModal = ref(false)
         <span>一键催缴</span>
       </button>
 
-      <button class="add-btn">
+      <button class="add-btn" @click="showRoomModal = true">
         <Plus :size="18" />
         <span>添加房源</span>
       </button>
 
       <DataImportModal :show="showImportModal" @close="showImportModal = false" />
       <DebtCollectionModal :show="showDebtModal" @close="showDebtModal = false" />
+      <TenantModal :show="showTenantModal" @close="showTenantModal = false" />
+      <RoomModal :show="showRoomModal" @close="showRoomModal = false" />
 
       <button class="icon-btn notification-btn">
         <Bell :size="20" />

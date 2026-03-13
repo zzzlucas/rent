@@ -15,9 +15,19 @@ import {
   Key,
   MoreVertical,
   UserPlus,
-  Briefcase
+  Briefcase,
+  LogOut
 } from 'lucide-vue-next'
 import { showToast } from '../store'
+import { useRouter } from 'vue-router'
+
+const router = useRouter()
+
+const handleLogout = () => {
+  localStorage.removeItem('token')
+  showToast('已退出登录', 'info')
+  router.push({ name: 'login' })
+}
 
 const activeTab = ref('general')
 const tabs = [
@@ -94,6 +104,11 @@ const saveSettings = () => {
         >
           <component :is="tab.icon" :size="18" />
           <span>{{ tab.label }}</span>
+        </button>
+        <div class="divider"></div>
+        <button class="nav-item logout-btn" @click="handleLogout">
+          <LogOut :size="18" />
+          <span>退出登录</span>
         </button>
       </aside>
 
@@ -400,6 +415,20 @@ const saveSettings = () => {
   min-height: 500px;
   display: flex;
   flex-direction: column;
+}
+
+.divider {
+  height: 1px;
+  background: var(--border-color);
+  margin: 0.5rem 0.75rem;
+}
+
+.logout-btn {
+  color: #f87171 !important;
+}
+
+.logout-btn:hover {
+  background: rgba(248, 113, 113, 0.1) !important;
 }
 
 .section-title { font-size: 1.5rem; font-weight: 800; margin-bottom: 2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; flex: 1; margin-bottom: 0; border: none; }

@@ -1,17 +1,47 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { Search, Plus, Filter, Mail, Phone, MoreVertical, Upload, HelpCircle } from 'lucide-vue-next'
 import DataImportModal from './DataImportModal.vue'
+import TenantModal from './TenantModal.vue'
+import { getCustomers } from '../../api/property'
+import { showToast } from '../../store'
 
-const tenants = [
-  { id: 1, name: '张三', phone: '138****8888', email: 'zhangsan@example.com', property: '秀湖花苑 8号楼 1202', status: 'active', joinDate: '2023-05-20' },
-  { id: 2, name: '李四', phone: '139****7777', email: 'lisi@example.com', property: '秀湖花苑 12号楼 504', status: 'active', joinDate: '2023-08-15' },
-  { id: 3, name: '王五', phone: '137****6666', email: 'wangwu@example.com', property: '秀湖花苑 6号楼 612', status: 'overdue', joinDate: '2024-01-10' },
-  { id: 4, name: '赵六', phone: '136****5555', email: 'zhaoliu@example.com', property: '秀湖花苑 3号楼 201', status: 'active', joinDate: '2022-11-05' },
-]
-
+const tenants = ref<any[]>([])
+const isLoading = ref(false)
 const searchQuery = ref('')
 const showImportModal = ref(false)
+const showTenantModal = ref(false)
+
+const fetchCustomers = async () => {
+  isLoading.value = true
+  try {
+    const res = await getCustomers({ name: searchQuery.value })
+    if (res.code === 0 && Array.isArray(res.data)) {
+      tenants.value = res.data.map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        email: c.email || '-',
+        property: '-', // TODO: fetch from contract
+        status: c.status === 0 ? 'active' : 'overdue',
+        joinDate: c.createTime?.split('T')[0] || '-'
+      }))
+    }
+  } catch (error: any) {
+    showToast(error.message || '加载客户数据失败', 'error')
+  } finally {
+    isLoading.value = false
+  }
+}
+
+watch(searchQuery, () => {
+  // Debounce could be added here
+  fetchCustomers()
+})
+
+onMounted(() => {
+  fetchCustomers()
+})
 </script>
 
 <template>
@@ -33,7 +63,7 @@ const showImportModal = ref(false)
           <Filter :size="18" />
           <span>筛选</span>
         </button>
-        <button class="primary-btn">
+        <button class="primary-btn" @click="showTenantModal = true">
           <Plus :size="18" />
           <span>登记新租客</span>
         </button>
@@ -41,6 +71,7 @@ const showImportModal = ref(false)
     </div>
 
     <DataImportModal :show="showImportModal" initial-type="tenants" @close="showImportModal = false" />
+    <TenantModal :show="showTenantModal" @close="showTenantModal = false" @success="fetchCustomers" />
 
     <div class="tenant-table-container glass">
       <table class="tenant-table">

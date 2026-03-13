@@ -51,3 +51,8 @@
 - Vanilla CSS (with CSS Variables)
 - Lucide Vue Next (Icons)
 - Motion (for Vue)
+### 实现进度 (Implementation Progress)
+- [x] **2026-03-14**: 完成前后端核心打通。
+  - 接入 JWT 登录流程，支持多租户 Token。
+  - 房源台账、房态看板、租客管理已切换为真实 API 数据源。
+  - 解决了跨域与 API Proxy 配置。

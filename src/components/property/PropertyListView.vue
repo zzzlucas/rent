@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { 
   Search, 
   Filter, 
@@ -19,23 +19,62 @@ import {
 } from 'lucide-vue-next'
 import { followedPropertyIds, toggleFollowProperty, showToast } from '../../store'
 import DataImportModal from './DataImportModal.vue'
+import RoomModal from './RoomModal.vue'
+import LeaseModal from './LeaseModal.vue'
+import { getRooms, terminateLease } from '../../api/property'
+import { LogIn, LogOut } from 'lucide-vue-next'
 
-// Mock Data enriched for Ledger view
-const mockProperties = ref([
-  { id: '1', title: 'A号楼 101', type: '一室一厅', area: 45, rent: 3200, status: 'occupied', tenant: '张大壮', phone: '138***000', leaseEnd: '2024-10-15', progress: 85 },
-  { id: '2', title: 'A号楼 102', type: '精装单间', area: 25, rent: 1800, status: 'vacant', tenant: '-', phone: '-', leaseEnd: '-', progress: 0 },
-  { id: '3', title: 'B号楼 305', type: '标准两居', area: 75, rent: 5500, status: 'occupied', tenant: '李小美', phone: '139***888', leaseEnd: '2024-05-20', progress: 40 },
-  { id: '4', title: 'C号楼 502', type: '大套间', area: 90, rent: 6200, status: 'maintenance', tenant: '-', phone: '-', leaseEnd: '-', progress: 0 },
-  { id: '5', title: 'A号楼 203', type: '一室一厅', area: 45, rent: 3300, status: 'occupied', tenant: '王老五', phone: '135***111', leaseEnd: '2024-12-01', progress: 70 },
-  { id: '6', title: 'B号楼 401', type: '单间', area: 22, rent: 1600, status: 'occupied', tenant: '赵六', phone: '186***222', leaseEnd: '2024-03-30', progress: 95 },
-])
+const showImportModal = ref(false)
+const showRoomModal = ref(false)
+const showLeaseModal = ref(false)
+const selectedRoom = ref<any>(null)
+
+// Data state
+const properties = ref<any[]>([])
+const isLoading = ref(false)
+
+const fetchRooms = async () => {
+  isLoading.value = true
+  try {
+    const res = await getRooms()
+    if (res.code === 0 && Array.isArray(res.data)) {
+      // Mapping backend Room to frontend format
+      properties.value = res.data.map((r: any) => {
+        // Find active contract to get tenant info
+        const activeLease = r.contracts?.find((c: any) => c.status === 1)
+        return {
+          id: r.id.toString(),
+          title: `${r.property?.name || '未建物业'} ${r.roomNumber}`,
+          type: r.towards ? `${r.towards}向` : '标准间',
+          area: r.area || 0,
+          rent: r.rentPrice / 100,
+          status: r.status === 1 ? 'occupied' : r.status === 2 ? 'maintenance' : 'vacant',
+          tenant: activeLease?.customer?.name || '-',
+          phone: activeLease?.customer?.phone || '-',
+          leaseEnd: activeLease?.endDate || '-',
+          progress: activeLease ? calculateLeaseProgress(activeLease.startDate, activeLease.endDate) : 0,
+          raw: r, // Keep raw data for modal
+          contractId: activeLease?.id
+        }
+      })
+    }
+  } catch (error: any) {
+    showToast(error.message || '加载房源失败', 'error')
+  } finally {
+    isLoading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchRooms()
+})
 
 const searchQuery = ref('')
 const statusFilter = ref('all')
 const selectedIds = ref<string[]>([])
 
 const filteredData = computed(() => {
-  return mockProperties.value.filter(p => {
+  return properties.value.filter(p => {
     const matchesSearch = p.title.toLowerCase().includes(searchQuery.value.toLowerCase()) || 
                           p.tenant.includes(searchQuery.value)
     const matchesStatus = statusFilter.value === 'all' || p.status === statusFilter.value
@@ -63,8 +102,33 @@ const getStatusLabel = (status: string) => {
 const exportLedger = () => {
   showToast(`正在生成 ${selectedIds.value.length || filteredData.value.length} 条房源的Excel台账报表...`, 'info')
 }
+const openLeaseModal = (room: any) => {
+  selectedRoom.value = room.raw
+  showLeaseModal.value = true
+}
 
-const showImportModal = ref(false)
+const handleTerminateLease = async (p: any) => {
+  if (!confirm(`确认要为 ${p.title} 办理退租吗？合同将被终止。`)) return
+  try {
+    const res = await terminateLease(p.contractId)
+    if (res.code === 0) {
+      showToast('退租办理成功', 'success')
+      fetchRooms()
+    }
+  } catch (error: any) {
+    showToast(error.message || '操作失败', 'error')
+  }
+}
+
+const calculateLeaseProgress = (start: string, end: string) => {
+  const s = new Date(start).getTime()
+  const e = new Date(end).getTime()
+  const n = new Date().getTime()
+  if (n < s) return 0
+  if (n > e) return 100
+  return Math.round(((n - s) / (e - s)) * 100)
+}
+
 </script>
 
 <template>
@@ -83,13 +147,15 @@ const showImportModal = ref(false)
         <button class="export-btn" @click="exportLedger">
           <Download :size="18" /> 导出本页台账
         </button>
-        <button class="primary-btn">
-          <Plus :size="18" /> 新增录入
+        <button class="primary-btn" @click="showRoomModal = true">
+          <Plus :size="18" /> 添加房源
         </button>
       </div>
     </header>
 
     <DataImportModal :show="showImportModal" initial-type="properties" @close="showImportModal = false" />
+    <RoomModal :show="showRoomModal" @close="showRoomModal = false" @success="fetchRooms" />
+    <LeaseModal :show="showLeaseModal" :room="selectedRoom" @close="showLeaseModal = false" @success="fetchRooms" />
 
     <!-- Ledger Stats Summary -->
     <div class="stats-summary-strip glass">
@@ -195,6 +261,22 @@ const showImportModal = ref(false)
                   :title="followedPropertyIds.has(p.id) ? '取消关注' : '加入关注清单'"
                 >
                   <Star :size="16" :fill="followedPropertyIds.has(p.id) ? 'var(--accent-warning)' : 'none'" />
+                </button>
+                <button 
+                  v-if="p.status === 'vacant'"
+                  class="row-btn lease-btn" 
+                  title="办理代租"
+                  @click="openLeaseModal(p)"
+                >
+                  <LogIn :size="16" color="#10b981" />
+                </button>
+                <button 
+                  v-if="p.status === 'occupied'"
+                  class="row-btn terminate-btn" 
+                  title="办理退租"
+                  @click="handleTerminateLease(p)"
+                >
+                  <LogOut :size="16" color="#ef4444" />
                 </button>
                 <button class="row-btn"><Edit3 :size="16"/></button>
                 <button class="row-btn"><ChevronRight :size="16"/></button>
