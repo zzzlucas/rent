@@ -11,8 +11,10 @@ import {
   Bot,
   SendHorizontal,
   Zap,
-  Target
+  Target,
+  BarChart3
 } from 'lucide-vue-next'
+import { chatProxy } from '../../api/ai'
 
 const props = withDefaults(defineProps<{
   type?: 'asset' | 'collection'
@@ -46,6 +48,9 @@ const runAnalysis = () => {
   analysisResult.value = null
   analysisLogs.value = []
   
+  // 立即开始分析，不再等待模拟日志跑完
+  finalizeAnalysis()
+  
   const logs = [
     '正在扫描房源实时状态...',
     '分析财务流水与租约到期分布...',
@@ -55,55 +60,146 @@ const runAnalysis = () => {
   
   let i = 0
   const logInterval = setInterval(() => {
-    if (i < logs.length) {
+    if (i < logs.length && isAnalyzing.value) {
       analysisLogs.value.push(logs[i])
       i++
     } else {
       clearInterval(logInterval)
-      finalizeAnalysis()
     }
-  }, 600)
+  }, 400)
 }
 
-const finalizeAnalysis = () => {
-  const occupancyRate = (props.data.occupied / (props.data.total - props.data.unmanaged) * 100).toFixed(1)
-  const overdueRate = (props.data.payDanger / props.data.occupied * 100).toFixed(1)
-  
-  analysisResult.value = {
-    score: 85,
-    summary: `当前园区运营状况良好，出租率达到 ${occupancyRate}%。但注意到有 ${props.data.payDanger} 间房源存在逾期风险，建议优先跟进。`,
-    insights: [
-      {
-        type: 'success',
-        title: '出租率表现强劲',
-        desc: `高于行业平均水平 (82%)，建议维持当前的定价策略。`,
-        icon: TrendingUp
-      },
-      {
-        type: 'warning',
-        title: '逾期风险预警',
-        desc: `当前逾期率为 ${overdueRate}%，${props.data.payDanger}间房源欠费超过一周，建议启动智能催收。`,
-        icon: AlertCircle
-      },
-      {
-        type: 'info',
-        title: '维护效率分析',
-        desc: `有 ${props.data.maintenance} 间房源进行中，平均预计修复时间 1.5 天。`,
-        icon: CheckCircle2
-      }
+const finalizeAnalysis = async () => {
+  const prompt = `你是一个专业的房产评估与运营顾问。请根据以下数据进行分析：
+  数据：
+  - 总房源: ${props.data.total}
+  - 已出租: ${props.data.occupied}
+  - 空置中: ${props.data.vacant}
+  - 维护中: ${props.data.maintenance}
+  - 未管护: ${props.data.unmanaged}
+  - 缴费正常: ${props.data.payNormal}
+  - 缴费预警: ${props.data.payWarning}
+  - 缴费欠费(危险): ${props.data.payDanger}
+
+  请返回一个 JSON 对象，结构如下：
+  {
+    "score": 0-100之间的数字,
+    "summary": "一段简短的运营概况",
+    "insights": [
+      { "type": "success|warning|info", "title": "标题", "desc": "描述" }
     ],
-    suggestedActions: [
-      '对 305/402 房源发送催租短信',
-      '将 15 天未修复房源升级为紧急任务',
-      '上调 A栋 高楼层房源挂牌价 (预计 +5%)'
-    ],
-    forecast: [
-      { month: '4月', value: '¥285,400', growth: '+2.4%' },
-      { month: '5月', value: '¥292,100', growth: '+3.1%' },
-      { month: '6月', value: '¥305,000', growth: '+4.5%' }
+    "suggestedActions": ["建议1", "建议2", "建议3"],
+    "forecast": [
+      { "month": "月份", "value": "预估金额", "growth": "增长率" }
     ]
   }
-  isAnalyzing.value = false
+  只返回 JSON，不要有其他描述。`
+
+  try {
+    const response = await chatProxy([
+      { role: 'system', content: 'You are a professional property management AI assistant. Always output valid JSON.' },
+      { role: 'user', content: prompt }
+    ], true)
+    
+    const reader = response.body?.getReader()
+    const decoder = new TextDecoder()
+    let fullContent = ''
+    
+    // 增强型部分 JSON 修复工具
+    const tryRepairJson = (json: string) => {
+      let toParse = json.trim()
+      if (!toParse.startsWith('{')) return null
+      
+      // 1. 处理未闭合的引号（如果在字符串中间截断）
+      const quoteCount = (toParse.match(/"/g) || []).length
+      if (quoteCount % 2 !== 0) toParse += '"'
+      
+      // 2. 补齐闭合符号
+      const stack: string[] = []
+      for (const char of toParse) {
+        if (char === '{') stack.push('}')
+        else if (char === '[') stack.push(']')
+        else if (char === '}' || char === ']') {
+          if (stack.length > 0 && stack[stack.length - 1] === char) stack.pop()
+        }
+      }
+      while (stack.length > 0) toParse += stack.pop()
+
+      try { return JSON.parse(toParse) } catch (e) { return null }
+    }
+
+    if (reader) {
+      let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || ''
+
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed || !trimmed.startsWith('data: ')) continue
+          
+          const dataStr = trimmed.slice(6).trim()
+          if (dataStr === '[DONE]') continue
+          try {
+            const data = JSON.parse(dataStr)
+            const content = data.choices?.[0]?.delta?.content || ''
+            if (!content) continue
+            fullContent += content
+
+            const clean = fullContent.replace(/```json/g, '').replace(/```/g, '').trim()
+            const partial = tryRepairJson(clean)
+            if (partial) {
+              // 只要解析到了分数或概要，就立即切换到内容视图，不再显示加载动画
+              if (isAnalyzing.value && (partial.score || partial.summary)) {
+                isAnalyzing.value = false
+              }
+              
+              if (partial.insights) {
+                partial.insights.forEach((ins: any) => {
+                  if (ins.type === 'success') ins.icon = TrendingUp
+                  else if (ins.type === 'warning') ins.icon = AlertCircle
+                  else if (ins.type === 'info') ins.icon = CheckCircle2
+                })
+              }
+              analysisResult.value = partial
+            }
+          } catch (e) {}
+        }
+      }
+    }
+
+    // 最后再确保解析一次完整的
+    let cleanContent = fullContent.replace(/```json/g, '').replace(/```/g, '').trim()
+    try {
+      const finalParsed = JSON.parse(cleanContent)
+      if (finalParsed.insights) {
+        finalParsed.insights.forEach((ins: any) => {
+          if (ins.type === 'success') ins.icon = TrendingUp
+          else if (ins.type === 'warning') ins.icon = AlertCircle
+          else ins.icon = CheckCircle2
+        })
+      }
+      analysisResult.value = finalParsed
+    } catch (e) {}
+  } catch (error) {
+    console.error('AI Analysis failed:', error)
+    // Fallback to minimal info if AI fails
+    analysisResult.value = {
+      score: 70,
+      summary: '由于网络波动，无法通过 AI 生成深度报告。基础数据：入住率已达 ' + (props.data.occupied / props.data.total * 100).toFixed(1) + '%。',
+      insights: [
+        { type: 'info', title: '离线分析', desc: '请检查后端 AI 配置', icon: CheckCircle2 }
+      ],
+      suggestedActions: ['重试 AI 分析', '联系系统管理员'],
+      forecast: []
+    }
+  } finally {
+    isAnalyzing.value = false
+  }
 }
 
 const formattedSummary = computed(() => {
@@ -115,28 +211,82 @@ const analysisLogs = ref<string[]>([])
 
 // 对话逻辑 (Chat simulation)
 const chatMessages = ref([
-  { role: 'assistant', text: '您好！我是您的催收小助理。我已经分析了刚才的回执记录，发现有位租客在 10 分钟内点击了 5 次链接但未支付，这通常意味着对方有支付压力但在犹豫。需要我生成一套温和的催收话术吗？' }
+  { role: 'assistant', text: '您好！我是 RentMaster AI 经营顾问。我已经同步了当前的房态数据，您可以询问我关于资产运营建议、风险评估或租务处理的相关问题。' }
 ])
 const userMessage = ref('')
 
-const sendMessage = () => {
-  if (!userMessage.value.trim()) return
+const sendMessage = async () => {
+  if (!userMessage.value.trim() || isChatting.value) return
   
-  chatMessages.value.push({ role: 'user', text: userMessage.value })
-  const input = userMessage.value
+  const text = userMessage.value
+  chatMessages.value.push({ role: 'user', text })
   userMessage.value = ''
-  
-  // 模拟 AI 回复
-  setTimeout(() => {
-    let response = '我正在处理您的请求...'
-    if (input.includes('方案') || input.includes('建议')) {
-      response = '根据该租客的信用历史，建议采用“分期分摊”方案。我们可以先要求支付 50% 的欠费，剩余部分随下月租金一起。'
-    } else {
-      response = '明白，已为您调整策略。目前该房源的催缴优先级已提升，我将在明早 10:00 自动进行第二次带回执的通知发送。'
+  isChatting.value = true
+
+  // Preparation for streaming
+  const assistantMsg = { role: 'assistant', text: '' }
+  chatMessages.value.push(assistantMsg)
+
+  try {
+    const context = `当前大楼运营情况：总房源 ${props.data.total}，入住率 ${(props.data.occupied / props.data.total * 100).toFixed(1)}%，欠费风险 ${props.data.payDanger} 间。`
+    const messages = [
+      { role: 'system', content: '你是 RentMaster AI 房产经营顾问。' + context },
+      ...chatMessages.value.slice(0, -1).map(m => ({ role: m.role, content: m.text })),
+    ]
+
+    const response = await chatProxy(messages, true)
+    const reader = response.body?.getReader()
+    const decoder = new TextDecoder()
+    
+    if (reader) {
+      let buffer = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        // Keep the last partial line in buffer
+        buffer = lines.pop() || ''
+        
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed || !trimmed.startsWith('data: ')) continue
+          
+          const dataStr = trimmed.slice(6).trim()
+          if (dataStr === '[DONE]') continue
+          
+          try {
+            const data = JSON.parse(dataStr)
+            const content = data.choices?.[0]?.delta?.content || ''
+            assistantMsg.text += content
+          } catch (e) {
+            console.warn('Failed to parse SSE line:', line, e)
+          }
+        }
+      }
     }
-    chatMessages.value.push({ role: 'assistant', text: response })
-  }, 1000)
+  } catch (error) {
+    console.error('Chat error:', error)
+    assistantMsg.text = '对不起，我遇到了一些技术困难，暂时无法回答。'
+  } finally {
+    isChatting.value = false
+  }
 }
+const isChatting = ref(false)
+const chatScrollRef = ref<HTMLElement | null>(null)
+
+const scrollToBottom = () => {
+  setTimeout(() => {
+    if (chatScrollRef.value) {
+      chatScrollRef.value.scrollTop = chatScrollRef.value.scrollHeight
+    }
+  }, 100)
+}
+
+watch(chatMessages, () => {
+  scrollToBottom()
+}, { deep: true })
 
 // Watch for data changes to re-analyze if open
 watch(() => props.data, () => {
@@ -210,7 +360,7 @@ watch(() => props.data, () => {
                     d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                   />
                   <path class="circle"
-                    stroke-dasharray="85, 100"
+                    :stroke-dasharray="analysisResult.score + ', 100'"
                     d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                   />
                   <text x="18" y="20.35" class="percentage">{{ analysisResult.score }}</text>
@@ -272,15 +422,22 @@ watch(() => props.data, () => {
 
             <!-- Chat Interface -->
             <div class="chat-interface">
-               <div class="chat-header">对话催收小助理</div>
-               <div class="chat-scroll">
+               <div class="chat-header">对话房产助手</div>
+               <div class="chat-scroll" ref="chatScrollRef">
                   <div v-for="(m, i) in chatMessages" :key="i" class="chat-msg" :class="m.role">
                     {{ m.text }}
                   </div>
+                  <div v-if="isChatting" class="chat-msg assistant typing">
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                  </div>
                </div>
                <div class="chat-input-area">
-                 <input v-model="userMessage" @keyup.enter="sendMessage" placeholder="询问催缴策略或要求 AI ...">
-                 <button @click="sendMessage"><SendHorizontal :size="16" /></button>
+                 <input v-model="userMessage" @keyup.enter="sendMessage" placeholder="询问经营策略或数据详情...">
+                 <button @click="sendMessage" :disabled="isChatting">
+                   <SendHorizontal :size="16" />
+                 </button>
                </div>
             </div>
 
@@ -672,6 +829,7 @@ const formatSummary = (text: string) => {
   border-radius: 12px;
   max-width: 90%;
   line-height: 1.5;
+  white-space: pre-wrap;
 }
 
 .chat-msg.assistant {
@@ -717,6 +875,26 @@ const formatSummary = (text: string) => {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+}
+
+.chat-msg.assistant.typing {
+  display: flex;
+  gap: 4px;
+  padding: 0.5rem 1rem;
+}
+.chat-msg.assistant.typing .dot {
+  width: 4px;
+  height: 4px;
+  background: var(--text-muted);
+  border-radius: 50%;
+  animation: typing 1.4s infinite;
+}
+.chat-msg.assistant.typing .dot:nth-child(2) { animation-delay: 0.2s; }
+.chat-msg.assistant.typing .dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typing {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-4px); }
 }
 
 /* Animations */
