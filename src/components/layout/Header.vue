@@ -8,10 +8,13 @@ import {
   Upload,
   HelpCircle,
   UserPlus,
-  Zap
+  Zap,
+  Sun,
+  Moon
 } from 'lucide-vue-next'
 import DataImportModal from '../property/DataImportModal.vue'
 import DebtCollectionModal from '../property/DebtCollectionModal.vue'
+import { theme, toggleTheme } from '../../store'
 
 const showImportModal = ref(false)
 const showDebtModal = ref(false)
@@ -30,6 +33,11 @@ const showDebtModal = ref(false)
     </div>
 
     <div class="header-actions">
+      <button class="icon-btn theme-toggle" @click="toggleTheme" title="切换主题">
+        <Sun v-if="theme === 'dark'" :size="20" />
+        <Moon v-else :size="20" />
+      </button>
+
       <div class="import-group">
         <button class="secondary-btn-header" @click="showImportModal = true">
           <Upload :size="16" />
@@ -99,7 +107,7 @@ const showDebtModal = ref(false)
 .search-bar {
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-input);
   border: 1px solid var(--border-color);
   padding: 0.5rem 1rem;
   border-radius: var(--radius-md);
@@ -108,7 +116,7 @@ const showDebtModal = ref(false)
 }
 
 .search-bar:focus-within {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-surface);
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
 }
@@ -165,7 +173,7 @@ input::placeholder {
 }
 
 .icon-btn:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-card-hover);
   color: var(--text-primary);
 }
 
@@ -174,9 +182,9 @@ input::placeholder {
 }
 
 .secondary-btn-header {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #fff;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
   padding: 0.6rem 1rem;
   border-radius: var(--radius-md);
   display: flex;
@@ -188,7 +196,7 @@ input::placeholder {
   font-size: 0.85rem;
 }
 .secondary-btn-header:hover { 
-  background: rgba(255, 255, 255, 0.15); 
+  background: var(--bg-card-hover); 
   border-color: var(--accent-primary);
 }
 
@@ -234,7 +242,7 @@ input::placeholder {
 }
 
 .glass {
-  background: rgba(10, 10, 12, 0.7);
+  background: var(--glass-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }

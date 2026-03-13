@@ -153,14 +153,14 @@ const openProperty = (p: any) => {
 }
 
 .toast-item {
-  background: rgba(15, 17, 21, 0.9);
+  background: var(--glass-bg);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--glass-border);
   border-radius: 16px;
   min-width: 320px;
   max-width: 450px;
   overflow: hidden;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--glass-shadow);
   pointer-events: auto;
   position: relative;
 }
@@ -191,7 +191,7 @@ const openProperty = (p: any) => {
 .toast-message {
   font-size: 0.95rem;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
   line-height: 1.4;
 }
 
@@ -284,7 +284,7 @@ const openProperty = (p: any) => {
   font-size: 2.5rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
-  background: linear-gradient(135deg, #fff 0%, #a1a1aa 100%);
+  background: var(--text-gradient);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -532,7 +532,7 @@ const openProperty = (p: any) => {
 }
 
 .glass {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--glass-bg);
   backdrop-filter: blur(12px);
 }
 

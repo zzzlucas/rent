@@ -9,7 +9,8 @@ import {
   Brain, 
   ArrowRight,
   BarChart3,
-  Bot
+  Bot,
+  SendHorizontal
 } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -107,6 +108,31 @@ const formattedSummary = computed(() => {
 })
 
 const analysisLogs = ref<string[]>([])
+
+// 对话逻辑 (Chat simulation)
+const chatMessages = ref([
+  { role: 'assistant', text: '您好！我是您的智能催收专家。我已经分析了刚才的回执记录，发现有位租客在 10 分钟内点击了 5 次链接但未支付，这通常意味着对方有支付压力但在犹豫。需要我生成一套温和的催收话术吗？' }
+])
+const userMessage = ref('')
+
+const sendMessage = () => {
+  if (!userMessage.value.trim()) return
+  
+  chatMessages.value.push({ role: 'user', text: userMessage.value })
+  const input = userMessage.value
+  userMessage.value = ''
+  
+  // 模拟 AI 回复
+  setTimeout(() => {
+    let response = '我正在处理您的请求...'
+    if (input.includes('方案') || input.includes('建议')) {
+      response = '根据该租客的信用历史，建议采用“分期分摊”方案。我们可以先要求支付 50% 的欠费，剩余部分随下月租金一起。'
+    } else {
+      response = '明白，已为您调整策略。目前该房源的催缴优先级已提升，我将在明早 10:00 自动进行第二次带回执的通知发送。'
+    }
+    chatMessages.value.push({ role: 'assistant', text: response })
+  }, 1000)
+}
 
 // Watch for data changes to re-analyze if open
 watch(() => props.data, () => {
@@ -235,6 +261,20 @@ watch(() => props.data, () => {
               </div>
             </div>
 
+            <!-- Chat Interface -->
+            <div class="chat-interface">
+               <div class="chat-header">对话 AI 专家</div>
+               <div class="chat-scroll">
+                  <div v-for="(m, i) in chatMessages" :key="i" class="chat-msg" :class="m.role">
+                    {{ m.text }}
+                  </div>
+               </div>
+               <div class="chat-input-area">
+                 <input v-model="userMessage" @keyup.enter="sendMessage" placeholder="询问催缴策略或要求 AI ...">
+                 <button @click="sendMessage"><SendHorizontal :size="16" /></button>
+               </div>
+            </div>
+
             <button class="action-btn-main">
               生成完整运营分析报告 <ArrowRight :size="16" />
             </button>
@@ -325,26 +365,26 @@ const formatSummary = (text: string) => {
   width: 420px;
   max-height: 80vh;
   border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--glass-shadow);
   transform-origin: bottom right;
 }
 
 .glass {
-  background: rgba(15, 20, 30, 0.95);
+  background: var(--glass-bg);
   backdrop-filter: blur(20px);
 }
 
 .panel-header {
   padding: 1.5rem;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-input);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .ai-brand {
@@ -364,8 +404,8 @@ const formatSummary = (text: string) => {
   color: white;
 }
 
-.ai-brand h3 { font-size: 1rem; font-weight: 700; margin: 0; color: #fff; }
-.ai-brand p { font-size: 0.75rem; color: #94a3b8; margin: 0; }
+.ai-brand h3 { font-size: 1rem; font-weight: 700; margin: 0; color: var(--text-primary); }
+.ai-brand p { font-size: 0.75rem; color: var(--text-muted); margin: 0; }
 
 .close-panel {
   background: transparent;
@@ -446,7 +486,7 @@ const formatSummary = (text: string) => {
 .progress-bar {
   width: 200px;
   height: 4px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-input);
   border-radius: 2px;
   overflow: hidden;
 }
@@ -483,21 +523,21 @@ const formatSummary = (text: string) => {
 }
 
 .circular-chart { display: block; margin: 0 auto; max-width: 80px; max-height: 80px; }
-.circle-bg { fill: none; stroke: rgba(255,255,255,0.05); stroke-width: 2.8; }
-.circle { fill: none; stroke-width: 2.8; stroke-linecap: round; animation: progress 1.5s ease-out forwards; stroke: #6366f1; }
+.circle-bg { fill: none; stroke: var(--bg-input); stroke-width: 2.8; }
+.circle { fill: none; stroke-width: 2.8; stroke-linecap: round; animation: progress 1.5s ease-out forwards; stroke: var(--accent-primary); }
 
 @keyframes progress { 0% { stroke-dasharray: 0 100; } }
 
-.percentage { fill: #fff; font-family: 'Outfit', sans-serif; font-size: 0.6rem; font-weight: 800; text-anchor: middle; }
+.percentage { fill: var(--text-primary); font-family: 'Outfit', sans-serif; font-size: 0.6rem; font-weight: 800; text-anchor: middle; }
 .score-label { font-size: 0.65rem; color: #94a3b8; font-weight: 600; margin-top: 4px; }
 
-.summary-text { font-size: 0.9rem; color: #cbd5e1; line-height: 1.6; }
+.summary-text { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.6; }
 
 /* Insights */
 .insights-grid { display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem; }
 .insight-card {
   display: flex; gap: 1rem; padding: 1.25rem; border-radius: 16px; 
-  background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--bg-input); border: 1px solid var(--border-color);
   transition: all 0.2s;
 }
 .insight-card:hover { transform: translateX(5px); background: rgba(255, 255, 255, 0.04); }
@@ -510,8 +550,8 @@ const formatSummary = (text: string) => {
 .insight-card.warning .i-icon-wrap { background: rgba(245, 158, 11, 0.1); color: #f59e0b; }
 .insight-card.info .i-icon-wrap { background: rgba(99, 102, 241, 0.1); color: #6366f1; }
 
-.i-text h5 { margin: 0 0 0.25rem; font-size: 0.9rem; font-weight: 700; color: #fff; }
-.i-text p { margin: 0; font-size: 0.8rem; color: #94a3b8; line-height: 1.5; }
+.i-text h5 { margin: 0 0 0.25rem; font-size: 0.9rem; font-weight: 700; color: var(--text-primary); }
+.i-text p { margin: 0; font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; }
 
 /* Actions Section */
 .actions-section { margin-bottom: 2rem; }
@@ -519,16 +559,16 @@ const formatSummary = (text: string) => {
 .action-tag-item {
   display: flex; align-items: center; gap: 0.75rem; padding: 0.85rem 1rem;
   background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.15);
-  border-radius: 12px; font-size: 0.85rem; color: #fff; font-weight: 600;
+  border-radius: 12px; font-size: 0.85rem; color: var(--text-primary); font-weight: 600;
   transition: all 0.2s; cursor: pointer;
 }
 .action-tag-item:hover { background: rgba(99, 102, 241, 0.15); transform: scale(1.02); }
 .a-dot { width: 6px; height: 6px; border-radius: 50%; background: #6366f1; box-shadow: 0 0 8px #6366f1; }
 
 :deep(.text-highlight) {
-  color: #fff;
+  color: var(--text-primary);
   font-weight: 800;
-  text-decoration: underline rgba(99, 102, 241, 0.4) 4px;
+  text-decoration: underline var(--accent-primary) 4px;
 }
 
 /* Forecast */
@@ -538,17 +578,99 @@ const formatSummary = (text: string) => {
 .forecast-list { display: flex; flex-direction: column; gap: 1rem; }
 .forecast-item { display: flex; align-items: center; gap: 1rem; font-size: 0.85rem; }
 .f-month { width: 40px; color: #94a3b8; }
-.f-bar-wrap { flex: 1; height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; }
-.f-bar { height: 100%; background: linear-gradient(90deg, #6366f1, #a855f7); border-radius: 4px; }
-.f-val { font-weight: 700; color: #fff; width: 70px; text-align: right; }
-.f-growth { color: #10b981; font-weight: 700; font-size: 0.75rem; width: 45px; }
+.f-bar-wrap { flex: 1; height: 8px; background: var(--bg-input); border-radius: 4px; overflow: hidden; }
+.f-bar { height: 100%; background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary)); border-radius: 4px; }
+.f-val { font-weight: 700; color: var(--text-primary); width: 70px; text-align: right; }
+.f-growth { color: var(--accent-success); font-weight: 700; font-size: 0.75rem; width: 45px; }
 
 .action-btn-main {
-  width: 100%; padding: 1rem; border-radius: 12px; background: #fff; color: #000; border: none;
+  width: 100%; padding: 1rem; border-radius: 12px; background: var(--accent-primary); color: #fff; border: none;
   font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 0.5rem;
   cursor: pointer; transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
 }
-.action-btn-main:hover { background: #e2e8f0; transform: translateY(-2px); }
+.action-btn-main:hover { background: var(--accent-secondary); transform: translateY(-2px); }
+
+/* Chat Interface Styles */
+.chat-interface {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 16px;
+  padding: 1rem;
+  margin-bottom: 2rem;
+  border: 1px solid var(--border-color);
+}
+
+.chat-header {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--accent-primary);
+  text-transform: uppercase;
+  margin-bottom: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+.chat-scroll {
+  max-height: 200px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding-right: 4px;
+}
+
+.chat-msg {
+  font-size: 0.85rem;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  max-width: 90%;
+  line-height: 1.5;
+}
+
+.chat-msg.assistant {
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border-bottom-left-radius: 2px;
+}
+
+.chat-msg.user {
+  background: var(--accent-primary);
+  color: white;
+  align-self: flex-end;
+  border-bottom-right-radius: 2px;
+}
+
+.chat-input-area {
+  display: flex;
+  gap: 0.5rem;
+  background: var(--bg-card);
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+}
+
+.chat-input-area input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+}
+
+.chat-input-area button {
+  background: var(--accent-primary);
+  color: white;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
 
 /* Animations */
 .panel-enter-active, .panel-leave-active { transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1); }

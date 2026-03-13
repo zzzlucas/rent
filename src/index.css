@@ -1,25 +1,11 @@
 :root {
   --font-main: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
   
-  /* Color Palette - Premium Dark Theme */
-  --bg-main: #0a0a0c;
-  --bg-sidebar: #111114;
-  --bg-card: rgba(255, 255, 255, 0.03);
-  --bg-card-hover: rgba(255, 255, 255, 0.06);
-  
   --accent-primary: #6366f1;
   --accent-secondary: #a855f7;
   --accent-success: #10b981;
   --accent-warning: #f59e0b;
   --accent-danger: #ef4444;
-  
-  --text-primary: #ffffff;
-  --text-secondary: #d4d4d8;
-  --text-muted: #a1a1aa;
-  
-  --border-color: rgba(255, 255, 255, 0.08);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
   
   --sidebar-width: 260px;
   --sidebar-collapsed-width: 80px;
@@ -30,6 +16,65 @@
 
   /* Responsive Constants */
   --mobile-nav-height: 64px;
+
+  /* Transitions */
+  --transition-speed: 0.3s;
+}
+
+/* Dark Theme (Default) */
+[data-theme='dark'], :root:not([data-theme='light']) {
+  --bg-main: #0a0a0c;
+  --bg-sidebar: #111114;
+  --bg-surface: #18181b;
+  --bg-card: rgba(255, 255, 255, 0.03);
+  --bg-card-hover: rgba(255, 255, 255, 0.06);
+  --bg-input: rgba(255, 255, 255, 0.03);
+  --text-primary: #ffffff;
+  --text-secondary: #d4d4d8;
+  --text-muted: #a1a1aa;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  --glass-bg: rgba(10, 10, 12, 0.7);
+  --text-gradient: linear-gradient(135deg, #fff 0%, #a1a1aa 100%);
+  
+  --status-occupied-bg: #334155;
+  --status-occupied-text: #cbd5e1;
+  --status-vacant-bg: rgba(255, 255, 255, 0.05);
+  --status-vacant-text: #94a3b8;
+  --status-unmanaged-bg: #0f172a;
+  
+  --status-normal-bg: #10b981;
+  --status-warning-bg: #f59e0b;
+  --status-danger-bg: #ef4444;
+}
+
+/* Light Theme */
+[data-theme='light'] {
+  --bg-main: #f8fafc;
+  --bg-sidebar: #ffffff;
+  --bg-surface: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f1f5f9;
+  --bg-input: #f1f5f9;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+  --glass-border: #e2e8f0;
+  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --text-gradient: linear-gradient(135deg, #1e293b 0%, #64748b 100%);
+
+  --status-occupied-bg: #e2e8f0;
+  --status-occupied-text: #475569;
+  --status-vacant-bg: #f8fafc;
+  --status-vacant-text: #94a3b8;
+  --status-unmanaged-bg: #f1f5f9;
+
+  --status-normal-bg: #bbf7d0;
+  --status-warning-bg: #fef08a;
+  --status-danger-bg: #fecaca;
 }
 
 * {
@@ -50,6 +95,14 @@ body {
 #app {
   min-height: 100vh;
   display: flex;
+  transition: background-color var(--transition-speed) ease, color var(--transition-speed) ease;
+}
+
+body, .main-content, .sidebar, .card, .glass, .stat-card, input, button {
+  transition: background-color var(--transition-speed) ease, 
+              border-color var(--transition-speed) ease, 
+              color var(--transition-speed) ease,
+              box-shadow var(--transition-speed) ease;
 }
 
 @media (max-width: 1024px) {
@@ -109,21 +162,21 @@ button {
   bottom: calc(100% + 12px);
   left: 50%;
   transform: translateX(-50%) translateY(10px);
-  background: #1e1e24;
+  background: var(--bg-surface);
   padding: 12px 16px;
   border-radius: 12px;
   width: 240px;
   font-size: 0.85rem;
   font-weight: 500;
   line-height: 1.5;
-  color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
   visibility: hidden;
   opacity: 0;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 1000;
   pointer-events: none;
-  box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+  box-shadow: var(--glass-shadow);
   text-align: center;
 }
 
@@ -140,7 +193,7 @@ button {
   left: 50%;
   transform: translateX(-50%);
   border: 6px solid transparent;
-  border-top-color: #1e1e24;
+  border-top-color: var(--bg-surface);
 }
 
 /* Downward Tooltip Variant */
@@ -158,7 +211,33 @@ button {
   top: auto;
   bottom: 100%;
   border-top-color: transparent;
-  border-bottom-color: #1e1e24;
+  border-bottom-color: var(--bg-surface);
+}
+
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+}
+
+/* Animations */
+.animate-fade-in {
+  opacity: 0;
+  animation: fadeIn 0.8s ease-out forwards;
+}
+
+.animate-slide-up {
+  opacity: 0;
+  transform: translateY(20px);
+  animation: slideUp 0.6s ease-out forwards;
+}
+
+@keyframes slideUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Scrollbar */

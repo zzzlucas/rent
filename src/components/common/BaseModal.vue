@@ -25,15 +25,17 @@ const emit = defineEmits(['close'])
           class="base-modal-container glass animate-modal-in" 
           :style="{ maxWidth }"
         >
+          <!-- Close Button (Always top-right) -->
+          <button v-if="showClose" class="close-btn" @click="emit('close')" aria-label="Close">
+            <X :size="20" />
+          </button>
+
           <!-- Header (Optional) -->
-          <header v-if="title || showClose" class="base-modal-header">
-            <div v-if="title" class="header-text">
+          <header v-if="title" class="base-modal-header">
+            <div class="header-text">
               <h3>{{ title }}</h3>
               <p v-if="subtitle" class="subtitle">{{ subtitle }}</p>
             </div>
-            <button v-if="showClose" class="close-btn" @click="emit('close')" aria-label="Close">
-              <X :size="20" />
-            </button>
           </header>
 
           <!-- Content -->
@@ -69,28 +71,25 @@ const emit = defineEmits(['close'])
 
 .base-modal-container {
   width: 100%;
-  background: #0f1115;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
   border-radius: 28px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8);
+  box-shadow: var(--glass-shadow);
   position: relative;
   max-height: 90vh; /* Keep some gap to screen edges */
 }
 
 .glass {
-  background: rgba(15, 17, 21, 0.95);
+  background: var(--glass-bg);
   backdrop-filter: blur(20px);
 }
 
 .base-modal-header {
-  padding: 1.5rem 2rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  padding: 2rem 4rem 1.5rem 2rem; /* Extra right padding for close button */
+  border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
 }
 
@@ -98,7 +97,7 @@ const emit = defineEmits(['close'])
   margin: 0;
   font-size: 1.25rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .subtitle {
@@ -108,23 +107,25 @@ const emit = defineEmits(['close'])
 }
 
 .close-btn {
-  background: rgba(255, 255, 255, 0.03);
-  border: none;
-  color: #64748b;
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
   cursor: pointer;
-  padding: 6px;
-  border-radius: 50%;
+  padding: 8px;
+  border-radius: 12px;
   transition: all 0.2s;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: -4px;
-  margin-right: -4px;
+  z-index: 10;
 }
 
 .close-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
 }
 
 .base-modal-body {

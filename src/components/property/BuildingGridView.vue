@@ -809,7 +809,7 @@ const toggleSmsQuick = () => {
 
 .block-selector {
   display: flex;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-input);
   padding: 0.25rem;
   border-radius: 8px;
 }
@@ -828,7 +828,7 @@ const toggleSmsQuick = () => {
 }
 
 .edit-toggle-btn {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-input);
   color: var(--text-secondary);
   padding: 0.4rem 1rem;
   border-radius: 8px;
@@ -900,12 +900,12 @@ const toggleSmsQuick = () => {
 .stat-item.unmanaged { color: var(--text-muted); }
 
 .dot { width: 8px; height: 8px; border-radius: 2px; }
-.dot.normal { background: #10b981; }
-.dot.warning { background: #f59e0b; }
-.dot.overdue { background: #ef4444; }
-.dot.vacant { background: transparent; border: 1px dashed #475569; }
+.dot.normal { background: var(--accent-success); }
+.dot.warning { background: var(--accent-warning); }
+.dot.overdue { background: var(--accent-danger); }
+.dot.vacant { background: transparent; border: 1px dashed var(--text-muted); }
 .dot.maintenance { background: #7f1d1d; }
-.dot.unmanaged { background: #0f172a; border: 1px solid #1e293b; }
+.dot.unmanaged { background: var(--status-unmanaged-bg); border: 1px solid var(--border-color); }
 
 .grid-container-wrapper {
   border-radius: var(--radius-lg);
@@ -943,7 +943,7 @@ const toggleSmsQuick = () => {
   position: sticky;
   top: 0;
   z-index: 20;
-  background: #111114;
+  background: var(--bg-main);
   padding: 1rem 0;
   font-size: 0.85rem;
   color: var(--text-primary);
@@ -955,8 +955,8 @@ const toggleSmsQuick = () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #334155;
-  color: white;
+  background: var(--status-occupied-bg);
+  color: var(--status-occupied-text);
   border-radius: 8px;
   font-weight: 800;
   position: relative;
@@ -979,17 +979,26 @@ const toggleSmsQuick = () => {
   transition: all 0.2s;
 }
 
-.status-occupied { background: #334155; color: #cbd5e1; }
-.pay-normal { background: #10b981; color: white; border: 1px solid rgba(255,255,255,0.1); }
-.pay-warning { background: #f59e0b; color: white; border: 1px solid rgba(255,255,255,0.1); }
-.pay-danger { background: #ef4444; color: white; border: 1px solid rgba(255,255,255,0.1); }
+.status-occupied { background: var(--status-occupied-bg); color: var(--status-occupied-text); }
+.pay-normal { background: var(--status-normal-bg); color: var(--text-primary); border: 1px solid var(--border-color); }
+.pay-warning { background: var(--status-warning-bg); color: var(--text-primary); border: 1px solid var(--border-color); }
+.pay-danger { background: var(--status-danger-bg); color: var(--text-primary); border: 1px solid var(--border-color); }
 
-.status-vacant { background: rgba(255,255,255,0.05); color: #94a3b8; border: 1px dashed #475569; }
+[data-theme='dark'] .pay-normal, 
+[data-theme='dark'] .pay-warning, 
+[data-theme='dark'] .pay-danger,
+:root:not([data-theme='light']) .pay-normal,
+:root:not([data-theme='light']) .pay-warning,
+:root:not([data-theme='light']) .pay-danger {
+  color: white;
+}
+
+.status-vacant { background: var(--status-vacant-bg); color: var(--status-vacant-text); border: 1px dashed var(--border-color); }
 .status-maintenance { background: #7f1d1d; color: #fecaca; }
 .status-unmanaged { 
-  background: #0f172a; 
-  color: #1e293b; 
-  border: 1px solid #1e293b;
+  background: var(--status-unmanaged-bg); 
+  color: var(--text-muted); 
+  border: 1px solid var(--border-color);
   opacity: 0.4;
 }
 
@@ -1034,7 +1043,7 @@ const toggleSmsQuick = () => {
   right: 4px;
 }
 
-.glass { background: rgba(17, 17, 20, 0.98); backdrop-filter: blur(20px); }
+/* Global .glass used from index.css */
 .drawer-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000; }
 /* Drawer Styles Upgraded */
 .detail-drawer { 
@@ -1042,10 +1051,10 @@ const toggleSmsQuick = () => {
   top: 0; 
   right: 0; 
   height: 100%; 
-  background: #111114; 
+  background: var(--bg-surface); 
   display: flex; 
   flex-direction: column;
-  box-shadow: -10px 0 30px rgba(0,0,0,0.3);
+  box-shadow: -10px 0 30px rgba(0,0,0,0.1);
   min-width: 380px;
 }
 
@@ -1129,7 +1138,7 @@ const toggleSmsQuick = () => {
 
 .d-stat { display: flex; flex-direction: column; gap: 4px; }
 .d-label { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
-.d-val { font-size: 1.1rem; font-weight: 700; color: #fff; }
+.d-val { font-size: 1.1rem; font-weight: 700; color: var(--text-primary); }
 .d-val.highlight { color: var(--accent-success); font-family: 'Outfit', sans-serif; font-size: 1.4rem; }
 .d-val.normal { color: #10b981; }
 .d-val.near_due { color: #f59e0b; }
@@ -1155,7 +1164,7 @@ const toggleSmsQuick = () => {
 }
 
 .t-main { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
-.t-avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--accent-primary); display: flex; align-items: center; justify-content: center; font-weight: 800; }
+.t-avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--accent-primary); display: flex; align-items: center; justify-content: center; font-weight: 800; color: white; }
 .t-avatar.female { background: #ec4899; }
 .t-avatar.male { background: #3b82f6; }
 .t-details { display: flex; flex-direction: column; }
@@ -1166,7 +1175,7 @@ const toggleSmsQuick = () => {
 .t-tag { font-size: 0.65rem; background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 4px; color: var(--text-secondary); width: fit-content; margin-top: 4px; }
 
 .t-contact { display: flex; flex-direction: column; gap: 8px; }
-.contact-btn { background: #fff; color: #000; font-size: 0.8rem; font-weight: 700; padding: 0.6rem; border-radius: 10px; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; }
+.contact-btn { background: var(--bg-surface); color: var(--text-primary); font-size: 0.8rem; font-weight: 700; padding: 0.6rem; border-radius: 10px; display: flex; align-items: center; justify-content: center; gap: 6px; text-decoration: none; border: 1px solid var(--border-color); }
 .t-identity { font-size: 0.75rem; color: var(--text-muted); text-align: center; font-family: 'Courier New', Courier, monospace; letter-spacing: 1px; }
 
 .sms-quick-toggle {
@@ -1302,11 +1311,11 @@ const toggleSmsQuick = () => {
 .input-wrap { display: flex; flex-direction: column; gap: 6px; }
 .input-wrap label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; }
 .input-wrap input, .input-wrap select, .input-wrap textarea { 
-  background: rgba(255, 255, 255, 0.03); 
-  border: 1px solid rgba(255, 255, 255, 0.1); 
+  background: var(--bg-input); 
+  border: 1px solid var(--border-color); 
   padding: 0.85rem 1rem; 
   border-radius: 12px; 
-  color: #fff; 
+  color: var(--text-primary); 
   font-size: 0.95rem; 
   outline: none; 
   transition: all 0.2s;
@@ -1374,7 +1383,7 @@ const toggleSmsQuick = () => {
   resize: vertical;
 }
 
-.drawer-footer-sticky { margin-top: auto; padding-top: 2rem; display: flex; gap: 1rem; position: sticky; bottom: 0; background: #111114; }
+.drawer-footer-sticky { margin-top: auto; padding-top: 2rem; display: flex; gap: 1rem; position: sticky; bottom: 0; background: var(--bg-surface); }
 .btn-cancel { flex: 1; padding: 1rem; border-radius: 12px; background: rgba(255,255,255,0.05); color: var(--text-secondary); font-weight: 700; }
 .btn-save { flex: 2; padding: 1rem; border-radius: 12px; background: var(--accent-primary); color: #fff; font-weight: 700; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3); }
 
@@ -1399,7 +1408,7 @@ const toggleSmsQuick = () => {
 }
 
 .close-btn { color: var(--text-muted); transition: color 0.2s; }
-.close-btn:hover { color: #fff; }
+.close-btn:hover { color: var(--text-primary); }
 
 /* Payment Modal */
 .payment-modal-overlay {
@@ -1415,7 +1424,7 @@ const toggleSmsQuick = () => {
 
 .payment-dialog {
   width: 360px;
-  background: #18181b;
+  background: var(--bg-surface);
   border: 1px solid var(--glass-border);
   border-radius: 20px;
   overflow: hidden;
@@ -1432,7 +1441,7 @@ const toggleSmsQuick = () => {
 .dialog-body { padding: 1.5rem; }
 
 .payment-summary {
-  background: rgba(255,255,255,0.03);
+  background: var(--bg-input);
   padding: 1rem;
   border-radius: 12px;
   margin-bottom: 1.5rem;
@@ -1442,7 +1451,7 @@ const toggleSmsQuick = () => {
 }
 
 .summary-item .label { font-size: 0.7rem; color: var(--text-muted); display: block; }
-.summary-item .val { font-size: 1.25rem; font-weight: 800; color: #fff; }
+.summary-item .val { font-size: 1.25rem; font-weight: 800; color: var(--text-primary); }
 
 .status-indicator { font-size: 0.7rem; font-weight: 800; padding: 4px 8px; border-radius: 6px; }
 .status-indicator.full { background: rgba(16, 185, 129, 0.15); color: #10b981; }
@@ -1451,7 +1460,7 @@ const toggleSmsQuick = () => {
 .amount-input-group {
   display: flex;
   align-items: center;
-  background: rgba(255,255,255,0.05);
+  background: var(--bg-input);
   border: 2px solid var(--border-color);
   border-radius: 12px;
   padding: 0 1rem;
@@ -1459,18 +1468,18 @@ const toggleSmsQuick = () => {
 }
 .amount-input-group:focus-within { border-color: var(--accent-primary); }
 .currency { font-weight: 700; color: var(--text-muted); }
-.amount-input-group input { background: transparent; border: none; outline: none; padding: 0.8rem; color: #fff; font-size: 1.1rem; width: 100%; font-weight: 700; }
+.amount-input-group input { background: transparent; border: none; outline: none; padding: 0.8rem; color: var(--text-primary); font-size: 1.1rem; width: 100%; font-weight: 700; }
 
 .preset-amounts { display: flex; gap: 8px; margin-top: 10px; }
 .preset-amounts button { font-size: 0.7rem; background: rgba(255,255,255,0.05); color: var(--text-secondary); padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border-color); }
 
 .dialog-body textarea {
   width: 100%;
-  background: rgba(255,255,255,0.05);
+  background: var(--bg-input);
   border: 1px solid var(--border-color);
   border-radius: 10px;
   padding: 0.8rem;
-  color: #fff;
+  color: var(--text-primary);
   resize: none;
   height: 80px;
   margin-top: 8px;
@@ -1494,7 +1503,7 @@ const toggleSmsQuick = () => {
 .template-select-dialog {
   width: 440px;
   border-radius: 24px;
-  background: #111114;
+  background: var(--bg-surface);
   border: 1px solid var(--glass-border);
   overflow: hidden;
   padding-bottom: 1rem;
@@ -1529,7 +1538,7 @@ const toggleSmsQuick = () => {
 }
 
 .tpl-item-main { display: flex; flex-direction: column; gap: 4px; }
-.tpl-name-compact { font-weight: 700; font-size: 0.95rem; color: #fff; }
+.tpl-name-compact { font-weight: 700; font-size: 0.95rem; color: var(--text-primary); }
 .tpl-meta-compact { font-size: 0.75rem; color: var(--text-muted); }
 
 .modal-overlay {

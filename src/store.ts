@@ -1,4 +1,4 @@
-import { reactive, ref } from 'vue'
+import { ref } from 'vue'
 
 export interface PropertyTemplate {
   id: string
@@ -75,5 +75,59 @@ export const toggleFollowProperty = (id: string) => {
   } else {
     followedPropertyIds.value.add(id)
     showToast('已成功关注该房源', 'success')
+  }
+}
+
+// Theme Management
+export type Theme = 'light' | 'dark'
+const savedTheme = localStorage.getItem('theme') as Theme | null
+export const theme = ref<Theme>(savedTheme || 'dark')
+
+export const applyTheme = (newTheme: Theme) => {
+  theme.value = newTheme
+  localStorage.setItem('theme', newTheme)
+  document.documentElement.setAttribute('data-theme', newTheme)
+}
+
+export const toggleTheme = () => {
+  const nextTheme = theme.value === 'light' ? 'dark' : 'light'
+  applyTheme(nextTheme)
+}
+
+// Initialize theme
+if (typeof document !== 'undefined') {
+  document.documentElement.setAttribute('data-theme', theme.value)
+}
+
+// 催缴记录追踪状态 (Buried point tracking)
+export interface CollectionRecord {
+  id: string
+  isRead: boolean
+  readAt?: string
+  sentAt: string
+}
+
+export const collectionStats = ref<Record<string, CollectionRecord>>({
+  '1': {
+    id: '1',
+    isRead: true,
+    readAt: new Date().toLocaleDateString() + ' 09:41',
+    sentAt: new Date().toLocaleDateString() + ' 08:30'
+  }
+})
+
+export const registerCollection = (id: string) => {
+  collectionStats.value[id] = {
+    id,
+    isRead: false,
+    sentAt: new Date().toLocaleString()
+  }
+}
+
+export const markAsRead = (id: string) => {
+  if (collectionStats.value[id] && !collectionStats.value[id].isRead) {
+    collectionStats.value[id].isRead = true
+    collectionStats.value[id].readAt = new Date().toLocaleString()
+    console.log(`[埋点日志] 租户点击了催缴链接，ID: ${id}, 时间: ${collectionStats.value[id].readAt}`)
   }
 }

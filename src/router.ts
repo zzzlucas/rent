@@ -49,6 +49,16 @@ const routes = [
     path: '/settings',
     name: 'settings',
     component: () => import('./views/SettingsView.vue')
+  },
+  {
+    path: '/collection-hub',
+    name: 'collection_hub',
+    component: () => import('./views/CollectionHubView.vue')
+  },
+  {
+    path: '/p/:id',
+    name: 'public_payment',
+    component: () => import('./views/PublicPaymentView.vue')
   }
 ]
 

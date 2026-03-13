@@ -216,29 +216,30 @@ const showImportModal = ref(false)
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .page-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
 .top-actions { display: flex; gap: 1rem; }
 
 .export-btn {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
   padding: 0.8rem 1.25rem;
   border-radius: 12px;
   display: flex;
   align-items: center;
   gap: 8px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
   cursor: pointer;
   transition: all 0.2s;
 }
-.export-btn:hover { background: rgba(255, 255, 255, 0.15); border-color: var(--accent-primary); }
+.export-btn:hover { background: var(--bg-card-hover); border-color: var(--accent-primary); }
 
 .primary-btn {
   background: var(--accent-primary);
+  color: white;
   padding: 0.75rem 1.5rem;
   border-radius: 12px;
   font-weight: 700;
@@ -257,10 +258,10 @@ const showImportModal = ref(false)
   border: 1px solid var(--glass-border);
 }
 
-.strip-item { display: flex; align-items: center; gap: 1rem; border-right: 1px solid rgba(255,255,255,0.05); padding: 0 1.5rem; }
+.strip-item { display: flex; align-items: center; gap: 1rem; border-right: 1px solid var(--border-color); padding: 0 1.5rem; }
 .strip-item:last-child { border-right: none; }
 .strip-item .s-info { display: flex; flex-direction: column; }
-.strip-item .v { font-size: 1.2rem; font-weight: 800; font-family: 'Outfit', sans-serif; }
+.strip-item .v { font-size: 1.2rem; font-weight: 800; font-family: 'Outfit', sans-serif; color: var(--text-primary); }
 .strip-item .l { font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; }
 
 /* Toolbar */
@@ -274,7 +275,7 @@ const showImportModal = ref(false)
 .search-group { display: flex; align-items: center; gap: 1.5rem; }
 .search-input-wrap {
   position: relative;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-input);
   border: 1px solid var(--border-color);
   border-radius: 12px;
   width: 300px;
@@ -282,7 +283,7 @@ const showImportModal = ref(false)
   align-items: center;
   padding: 0 1rem;
 }
-.search-input-wrap input { background: transparent; border: none; outline: none; padding: 0.8rem 0; color: #fff; width: 100%; }
+.search-input-wrap input { background: transparent; border: none; outline: none; padding: 0.8rem 0; color: var(--text-primary); width: 100%; }
 
 .filter-pills { display: flex; gap: 6px; }
 .filter-pills button { 
@@ -292,7 +293,7 @@ const showImportModal = ref(false)
 .filter-pills button.active { background: var(--accent-primary); color: #fff; border-color: var(--accent-primary); }
 
 .batch-ops {
-  background: rgba(99, 102, 241, 0.1);
+  background: rgba(99, 102, 241, 0.12);
   border: 1px solid rgba(99, 102, 241, 0.2);
   padding: 0.5rem 1rem;
   border-radius: 12px;
@@ -302,8 +303,8 @@ const showImportModal = ref(false)
   animation: slideIn 0.3s ease;
 }
 .selected-count { font-size: 0.8rem; font-weight: 700; color: var(--accent-primary); margin-right: 0.5rem; }
-.batch-btn { font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; background: #fff; color: #000; }
-.batch-btn.danger { background: rgba(248, 113, 113, 0.1); color: #f87171; }
+.batch-btn { font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 6px; background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border-color); }
+.batch-btn.danger { background: rgba(248, 113, 113, 0.1); color: #f87171; border-color: rgba(248, 113, 113, 0.2); }
 
 /* Table Ledger */
 .ledger-table-container {
@@ -314,16 +315,16 @@ const showImportModal = ref(false)
 
 .ledger-table { width: 100%; border-collapse: collapse; }
 .ledger-table th {
-  text-align: left; padding: 1.25rem 1.5rem; background: rgba(255,255,255,0.02);
+  text-align: left; padding: 1.25rem 1.5rem; background: var(--bg-input);
   color: var(--text-muted); font-size: 0.75rem; font-weight: 800; text-transform: uppercase; border-bottom: 1px solid var(--border-color);
 }
 
 .ledger-table td { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-color); vertical-align: middle; transition: all 0.2s; }
-.ledger-table tr:hover td { background: rgba(255,255,255,0.01); }
-.ledger-table tr.selected td { background: rgba(99, 102, 241, 0.05); }
+.ledger-table tr:hover td { background: var(--bg-card-hover); }
+.ledger-table tr.selected td { background: rgba(99, 102, 241, 0.08); }
 
 .prop-cell { display: flex; flex-direction: column; gap: 4px; }
-.p-title { font-weight: 700; font-size: 0.95rem; color: #fff; }
+.p-title { font-weight: 700; font-size: 0.95rem; color: var(--text-primary); }
 .p-meta { font-size: 0.75rem; color: var(--text-muted); }
 
 .p-price { font-weight: 800; font-family: 'Outfit', sans-serif; font-size: 1rem; color: var(--accent-primary); }
@@ -337,13 +338,13 @@ const showImportModal = ref(false)
 .t-phone { font-size: 0.75rem; color: var(--text-muted); font-family: 'Courier New', Courier, monospace; }
 
 .lease-cell { display: flex; flex-direction: column; gap: 6px; width: 140px; }
-.progress-track { height: 4px; background: rgba(255,255,255,0.05); border-radius: 2px; overflow: hidden; }
+.progress-track { height: 4px; background: var(--bg-input); border-radius: 2px; overflow: hidden; }
 .progress-fill { height: 100%; border-radius: 2px; }
 .lease-date { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; }
 
 .row-actions { display: flex; gap: 4px; }
 .row-btn { width: 32px; height: 32px; border-radius: 8px; color: var(--text-muted); display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
-.row-btn:hover { background: rgba(255,255,255,0.05); color: #fff; }
+.row-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
 
 .row-btn.star-toggle.is-active {
   color: var(--accent-warning);
@@ -358,7 +359,12 @@ const showImportModal = ref(false)
 
 @keyframes slideIn { from { transform: translateY(-10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-.glass { background: rgba(17, 17, 20, 0.98); backdrop-filter: blur(20px); }
+.glass { 
+  background: var(--glass-bg); 
+  backdrop-filter: blur(20px); 
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+}
 </style>
 
 <style scoped>

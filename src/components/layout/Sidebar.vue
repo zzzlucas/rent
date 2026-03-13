@@ -11,7 +11,8 @@ import {
   Grid2X2,
   Copy,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Zap
 } from 'lucide-vue-next'
 import { ref } from 'vue'
 
@@ -32,6 +33,7 @@ const navItems = [
   { id: 'tenants', label: '租客管理', icon: Users },
   { id: 'contracts', label: '合同中心', icon: FileText },
   { id: 'templates', label: '房源模板', icon: Copy },
+  { id: 'collection_hub', label: '智能催缴', icon: Zap },
   { id: 'maintenance', label: '报修/维护', icon: Wrench },
   { id: 'finance', label: '财务报表', icon: Wallet },
 ]
@@ -169,12 +171,12 @@ const navItems = [
 }
 
 .nav-links::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--border-color);
   border-radius: 10px;
 }
 
 .nav-links:hover::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--text-muted);
 }
 
 .nav-item {
@@ -202,9 +204,9 @@ const navItems = [
 }
 
 .nav-item.active {
-  background: rgba(99, 102, 241, 0.1);
+  background: rgba(99, 102, 241, 0.12);
   color: var(--accent-primary);
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .nav-item.active .icon {
@@ -230,7 +232,7 @@ const navItems = [
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg-input);
   border-radius: var(--radius-md);
   overflow: hidden;
 }
@@ -277,7 +279,7 @@ const navItems = [
     top: auto;
     flex-direction: row;
     padding: 0 1rem;
-    background: rgba(17, 17, 20, 0.95);
+    background: var(--glass-bg);
     backdrop-filter: blur(20px);
     border-right: none;
     border-top: 1px solid var(--border-color);

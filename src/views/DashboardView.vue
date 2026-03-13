@@ -216,7 +216,7 @@ const displayedFollowedProperties = computed(() => {
   font-size: 2.5rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
-  background: linear-gradient(135deg, #fff 0%, #a1a1aa 100%);
+  background: var(--text-gradient);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -260,8 +260,8 @@ const displayedFollowedProperties = computed(() => {
 
 .stat-card:hover {
   transform: translateY(-5px);
-  border-color: rgba(255, 255, 255, 0.1);
-  box-shadow: 0 12px 24px -10px rgba(0,0,0,0.5);
+  border-color: var(--accent-primary);
+  box-shadow: var(--glass-shadow);
 }
 
 .stat-card-header {
@@ -273,9 +273,9 @@ const displayedFollowedProperties = computed(() => {
 
 .stat-icon {
   padding: 8px;
-  background: rgba(255,255,255,0.03);
+  background: var(--bg-input);
   border-radius: 10px;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .stat-icon.purple { color: #a855f7; background: rgba(168, 85, 247, 0.1); }
@@ -306,7 +306,7 @@ const displayedFollowedProperties = computed(() => {
   font-weight: 850;
   margin-bottom: 0.25rem;
   letter-spacing: -0.04em;
-  background: linear-gradient(to bottom, #fff 40%, #a1a1aa 100%);
+  background: var(--text-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -478,7 +478,7 @@ const displayedFollowedProperties = computed(() => {
 
 .progress-bar {
   height: 6px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-input);
   border-radius: 3px;
   overflow: hidden;
 }

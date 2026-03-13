@@ -10,9 +10,10 @@ import {
   AlertTriangle,
   CheckCircle2,
   Loader2,
-  Send
+  Send,
+  Clock
 } from 'lucide-vue-next'
-import { followedPropertyIds, showToast } from '../../store'
+import { followedPropertyIds, showToast, collectionStats, registerCollection } from '../../store'
 import BaseModal from '../common/BaseModal.vue'
 
 const props = defineProps<{
@@ -86,12 +87,19 @@ const handleConfirm = async () => {
   const total = selectedIds.value.size
   const selectedList = debtProperties.filter(p => selectedIds.value.has(p.id))
   
-  for (let i = 0; i <= total; i++) {
-    sendProgress.value = Math.floor((i / total) * 100)
+  for (let i = 0; i < total; i++) {
+    const property = selectedList[i]
+    // 1. 注册埋点记录
+    registerCollection(property.id)
+    
+    // 2. 模拟短信日志
+    console.log(`[短信发送] 正在发至 ${property.phone}: 【租管家】${property.tenant}您好，您有房费待结，请查阅详情：${window.location.origin}/p/${property.id}`)
+    
+    sendProgress.value = Math.floor(((i + 1) / total) * 100)
     await new Promise(resolve => setTimeout(resolve, 300))
   }
   
-  showToast(`已成功为 ${total} 位租客发送催缴提醒`, 'success')
+  showToast(`已成功为 ${total} 位租客发送带追踪链接的催缴提醒`, 'success')
   isSending.value = false
   emit('close')
 }
@@ -160,6 +168,17 @@ const handleConfirm = async () => {
 
                 <div class="item-stats">
                   <div class="amount">¥{{ p.amount }}</div>
+                  
+                  <!-- 阅读状态埋点显示 -->
+                  <div v-if="collectionStats[p.id]" class="read-status" :class="{ 'read': collectionStats[p.id].isRead }">
+                    <CheckCircle2 v-if="collectionStats[p.id].isRead" :size="12" />
+                    <Clock v-else :size="12" />
+                    {{ collectionStats[p.id].isRead ? '租客已阅读回执 ' + collectionStats[p.id].readAt?.split(' ')[1] : '短信已发/未点击' }}
+                  </div>
+                  <div v-else class="read-status-placeholder">
+                     <Zap :size="10" /> 链路追踪已就绪
+                  </div>
+
                   <div v-if="p.debtDays > 0" class="status-tag danger">
                     <AlertTriangle :size="12" />
                     逾期 {{ p.debtDays }} 天
@@ -211,6 +230,7 @@ const handleConfirm = async () => {
 /* Content Styles */
 .custom-header {
   margin-bottom: 2rem;
+  padding-right: 3rem; /* Space for the top-right close button */
 }
 
 .title-with-icon {
@@ -222,27 +242,27 @@ const handleConfirm = async () => {
 .zap-icon-wrap {
   width: 48px;
   height: 48px;
-  background: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
-  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.05));
+  color: var(--accent-warning);
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 20px rgba(245, 158, 11, 0.1);
+  box-shadow: 0 8px 16px -4px rgba(245, 158, 11, 0.1);
 }
 
 .title-with-icon h3 {
   margin: 0;
   font-size: 1.4rem;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-primary);
   letter-spacing: -0.02em;
 }
 
 .title-with-icon p {
   margin: 4px 0 0;
   font-size: 0.9rem;
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .modal-body-content {
@@ -258,35 +278,35 @@ const handleConfirm = async () => {
 
 .search-box {
   flex: 1;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
   border-radius: 14px;
   display: flex;
   align-items: center;
   padding: 0 1.25rem;
-  color: #64748b;
+  color: var(--text-muted);
   transition: all 0.2s;
 }
 
 .search-box:focus-within {
-  border-color: #f59e0b;
-  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--accent-warning);
+  background: var(--bg-card-hover);
 }
 
 .search-box input {
   background: none;
   border: none;
   outline: none;
-  color: #fff;
+  color: var(--text-primary);
   padding: 0.85rem 0.5rem;
   width: 100%;
   font-size: 0.95rem;
 }
 
 .select-all-btn {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #cbd5e1;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
   padding: 0 1.5rem;
   border-radius: 14px;
   font-size: 0.9rem;
@@ -296,8 +316,9 @@ const handleConfirm = async () => {
 }
 
 .select-all-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: var(--bg-card-hover);
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
 }
 
 .debt-list {
@@ -311,28 +332,29 @@ const handleConfirm = async () => {
   align-items: center;
   gap: 1.25rem;
   padding: 1.25rem;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
   border-radius: 18px;
   cursor: pointer;
   transition: all 0.24s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .debt-item:hover {
-  background: rgba(255, 255, 255, 0.04);
-  transform: scale(1.01);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: var(--bg-card-hover);
+  transform: translateY(-2px);
+  border-color: var(--accent-primary);
 }
 
 .debt-item.selected {
-  background: rgba(245, 158, 11, 0.06);
-  border-color: rgba(245, 158, 11, 0.4);
+  background: var(--bg-surface);
+  border-color: var(--accent-warning);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1);
 }
 
 .check-box {
   width: 22px;
   height: 22px;
-  border: 2px solid rgba(255, 255, 255, 0.15);
+  border: 2px solid var(--border-color);
   border-radius: 7px;
   display: flex;
   align-items: center;
@@ -342,17 +364,21 @@ const handleConfirm = async () => {
 }
 
 .selected .check-box {
-  background: #f59e0b;
-  border-color: #f59e0b;
+  background: var(--accent-warning);
+  border-color: var(--accent-warning);
 }
 
 .check-inner {
   width: 6px;
   height: 10px;
-  border: 2.5px solid #000;
+  border: 2.5px solid white;
   border-top: 0;
   border-left: 0;
   transform: rotate(45deg) translate(-1px, -1.5px);
+}
+
+[data-theme='light'] .check-inner {
+  border-color: white;
 }
 
 .item-content {
@@ -375,9 +401,10 @@ const handleConfirm = async () => {
 }
 
 .p-title {
-  font-weight: 750;
+  font-weight: 800;
   font-size: 1.05rem;
-  color: #fff;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
 }
 
 .tenant-info {
@@ -390,7 +417,7 @@ const handleConfirm = async () => {
   align-items: center;
   gap: 0.5rem;
   font-size: 0.8rem;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .item-stats {
@@ -402,7 +429,7 @@ const handleConfirm = async () => {
 
 .amount {
   font-weight: 800;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 1.25rem;
   font-family: 'Outfit', sans-serif;
 }
@@ -425,7 +452,34 @@ const handleConfirm = async () => {
 
 .status-tag.warning {
   background: rgba(245, 158, 11, 0.15);
-  color: #fbbf24;
+  color: var(--accent-warning);
+}
+
+.read-status {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--text-muted);
+  transition: all 0.3s;
+}
+
+.read-status.read {
+  background: rgba(34, 197, 94, 0.15);
+  color: #22c55e;
+}
+
+.read-status-placeholder {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  opacity: 0.5;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .footer-actions {
@@ -437,11 +491,11 @@ const handleConfirm = async () => {
 
 .selected-summary {
   font-size: 0.95rem;
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .selected-summary strong {
-  color: #f59e0b;
+  color: var(--accent-warning);
   font-size: 1.1rem;
 }
 
@@ -451,9 +505,9 @@ const handleConfirm = async () => {
 }
 
 .cancel-btn {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #cbd5e1;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
   padding: 0.85rem 1.75rem;
   border-radius: 14px;
   font-weight: 700;
@@ -462,14 +516,14 @@ const handleConfirm = async () => {
 }
 
 .cancel-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
 }
 
 .confirm-btn {
-  background: #f59e0b;
+  background: var(--accent-warning);
   border: none;
-  color: #000;
+  color: white;
   padding: 0.85rem 2rem;
   border-radius: 14px;
   font-weight: 800;
@@ -482,9 +536,10 @@ const handleConfirm = async () => {
 }
 
 .confirm-btn:hover:not(:disabled) {
-  background: #fbbf24;
-  transform: scale(1.05);
-  box-shadow: 0 10px 30px rgba(245, 158, 11, 0.3);
+  background: var(--accent-warning);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px -5px rgba(245, 158, 11, 0.4);
+  filter: brightness(1.05);
 }
 
 .confirm-btn:disabled {
@@ -511,7 +566,7 @@ const handleConfirm = async () => {
 
 .progress-bar {
   height: 8px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-input);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -525,5 +580,5 @@ const handleConfirm = async () => {
 .animate-spin { animation: spin 1s linear infinite; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-.muted-icon { color: rgba(255, 255, 255, 0.3); }
+.muted-icon { color: var(--text-muted); opacity: 0.5; }
 </style>
