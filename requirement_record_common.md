@@ -12,3 +12,6 @@
 - [x] **放宽 TypeScript 校验限制**:
   - 原因：Build 时的 TS 类型校验过于严格（未使用变量、空值检查等），导致 Vercel 频繁构建失败。
   - 修复：从 `package.json` 的 build 脚本中移除了 `vue-tsc`，并在 `tsconfig.app.json` 中关闭了 `strict`、`noUnusedLocals` 和 `noUnusedParameters`。 (2026-03-13)
+- [x] **修复 Vercel 刷新 404 问题**:
+  - 原因：SPA 应用在路由跳转后，刷新页面会向服务器请求特定路径，而 Vercel 找不到物理文件。
+  - 修复：添加 `vercel.json` 配置重写规则，将所有路径重定向到 `index.html`。 (2026-03-13)
