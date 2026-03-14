@@ -10,7 +10,8 @@ import {
   UserPlus,
   Zap,
   Sun,
-  Moon
+  Moon,
+  LayoutGrid
 } from 'lucide-vue-next'
 import DataImportModal from '../property/DataImportModal.vue'
 import DebtCollectionModal from '../property/DebtCollectionModal.vue'
@@ -21,7 +22,6 @@ import { theme, toggleTheme } from '../../store'
 const showImportModal = ref(false)
 const showDebtModal = ref(false)
 const showTenantModal = ref(false)
-const showRoomModal = ref(false)
 </script>
 
 <template>
@@ -40,13 +40,10 @@ const showRoomModal = ref(false)
 
       <div class="import-group">
         <button class="secondary-btn-header" @click="showImportModal = true">
-          <Upload :size="16" />
-          <span>Excel 导入</span>
+          <LayoutGrid :size="16" />
+          <span>数据导入</span>
         </button>
-        <div class="tip-wrap tip-down">
-          <HelpCircle :size="14" class="tip-icon" />
-          <div class="tip-content">通过专业AI智能体进行数据预处理</div>
-        </div>
+
       </div>
 
       <button class="secondary-btn-header" @click="showTenantModal = true">
@@ -59,15 +56,11 @@ const showRoomModal = ref(false)
         <span>一键催缴</span>
       </button>
 
-      <button class="add-btn" @click="showRoomModal = true">
-        <Plus :size="18" />
-        <span>添加房源</span>
-      </button>
+
 
       <DataImportModal :show="showImportModal" @close="showImportModal = false" />
       <DebtCollectionModal :show="showDebtModal" @close="showDebtModal = false" />
       <TenantModal :show="showTenantModal" @close="showTenantModal = false" />
-      <RoomModal :show="showRoomModal" @close="showRoomModal = false" />
 
       <div class="divider-v"></div>
 

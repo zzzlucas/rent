@@ -7,6 +7,7 @@ import { chatProxy, fetchAiModels } from '../../api/ai'
 const props = defineProps<{
   show: boolean
   initialType?: string
+  initialMode?: 'excel' | 'ai_scan'
 }>()
 
 const emit = defineEmits(['close'])
@@ -14,7 +15,7 @@ const emit = defineEmits(['close'])
 const step = ref(1) // 1: Select/Upload, 2: AI Preprocessing/OCR, 3: AI Confirmation, 4: Final Processing, 5: Completed
 const importType = ref(props.initialType || 'properties')
 const aiEnabled = ref(true)
-const entryMode = ref<'excel' | 'ai_scan'>('excel') // excel: 传统表格, ai_scan: 拍照/扫描件 OCR
+const entryMode = ref<'excel' | 'ai_scan'>(props.initialMode || 'excel') // excel: 传统表格, ai_scan: 拍照/扫描件 OCR
 const fileName = ref('')
 const fileBase64 = ref('')
 const previewUrl = ref('')
@@ -34,6 +35,16 @@ const recognitionHistory = ref<any[]>(JSON.parse(localStorage.getItem('contract_
 const estimatedSeconds = ref(0)
 const elapsedSeconds = ref(0)
 let progressTimer: any = null
+
+// Sync entryMode when prop changes or modal opens
+import { watch } from 'vue'
+watch(() => [props.show, props.initialMode], () => {
+  if (props.show && props.initialMode) {
+    entryMode.value = props.initialMode
+  } else if (props.show && !props.initialMode) {
+    entryMode.value = 'excel' // Reset to default when no specific mode passed
+  }
+}, { immediate: true })
 
 const saveHistory = (data: any) => {
   recognitionHistory.value.unshift({
@@ -446,6 +457,10 @@ onMounted(async () => {
             <Upload :size="48" class="main-upload-icon" />
             <span>拖拽文件到此处 或 <span class="highlight">点击上传</span></span>
             <p class="small">仅支持 .xlsx, .xls, .csv 格式</p>
+            <div class="ai-promote-banner" @click.stop="entryMode = 'ai_scan'">
+              <Sparkles :size="14" />
+              <span>找不到 Excel？试试更先进的 <span class="ai-link">AI 智绘录入</span>，直接识别拍照件</span>
+            </div>
           </label>
           <div class="template-download">
             <Download :size="14" />
@@ -1392,5 +1407,32 @@ onMounted(async () => {
 .slide-up-enter-from, .slide-up-leave-to {
   opacity: 0;
   transform: translateY(30px) scale(0.9);
+}
+
+.ai-promote-banner {
+  margin-top: 1.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-card);
+  border: 1px dashed var(--accent-secondary);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.ai-promote-banner:hover {
+  background: var(--bg-input);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.1);
+}
+
+.ai-link {
+  color: var(--accent-secondary);
+  font-weight: 700;
+  text-decoration: underline;
 }
 </style>

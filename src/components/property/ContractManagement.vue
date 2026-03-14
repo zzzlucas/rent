@@ -20,30 +20,13 @@ const contracts = [
   { id: 3, tenant: '赵六', property: '秀湖花苑 3号楼 201', rent: 2800, period: '2022.11 - 2023.11', status: 'expired' },
 ]
 
-const showScanner = ref(false)
-const scanState = ref<'idle' | 'scanning' | 'review'>('idle')
-const ocrResults = ref({
-  tenantName: '王小云',
-  idNumber: '3101**********1234',
-  rentAmount: 5500,
-  startDate: '2024-04-01',
-  endDate: '2025-03-31',
-  property: '万科云城 612'
-})
-
-const startScan = () => {
-  scanState.value = 'scanning'
-  setTimeout(() => {
-    scanState.value = 'review'
-  }, 3000)
-}
-
-const saveContract = () => {
-  showScanner.value = false
-  scanState.value = 'idle'
-}
-
 const showImportModal = ref(false)
+const importMode = ref<'excel' | 'ai_scan'>('excel')
+
+const openImport = (mode: 'excel' | 'ai_scan') => {
+  importMode.value = mode
+  showImportModal.value = true
+}
 </script>
 
 <template>
@@ -55,19 +38,24 @@ const showImportModal = ref(false)
       </div>
       <div class="header-actions">
         <div class="import-group">
-          <button class="secondary-btn" @click="showImportModal = true">
+          <button class="secondary-btn" @click="openImport('excel')">
             <Upload :size="18" />
             <span>Excel 批量导入</span>
           </button>
         </div>
-        <button class="ai-scan-btn" @click="showScanner = true">
+        <button class="ai-scan-btn" @click="openImport('ai_scan')">
           <Scan :size="20" />
           <span>AI 智绘录入</span>
         </button>
       </div>
     </div>
 
-    <DataImportModal :show="showImportModal" initial-type="contracts" @close="showImportModal = false" />
+    <DataImportModal 
+      :show="showImportModal" 
+      initial-type="contracts" 
+      :initial-mode="importMode"
+      @close="showImportModal = false" 
+    />
 
     <!-- Contract List -->
     <div class="contracts-grid">
@@ -89,86 +77,7 @@ const showImportModal = ref(false)
       </div>
     </div>
 
-    <!-- AI Scan Modal -->
-    <div v-if="showScanner" class="modal-overlay" @click.self="showScanner = false">
-      <div class="modal-content glass animate-scale-up" :class="{ wide: scanState === 'review' }">
-        <button class="close-btn" @click="showScanner = false"><X :size="20" /></button>
-        
-        <div v-if="scanState === 'idle'" class="scan-idle">
-          <div class="scan-visual">
-            <div class="phone-mockup">
-              <Camera :size="48" />
-            </div>
-          </div>
-          <h3>AI 智能识图录入</h3>
-          <p>对准纸质合同正面拍照，或者上传清晰的扫描件。</p>
-          <div class="actions">
-            <button class="primary-btn" @click="startScan">
-              <Camera :size="20" />
-              <span>开始拍摄</span>
-            </button>
-            <div class="upload-link">
-              <Upload :size="16" />
-              <span>上传已有图片</span>
-            </div>
-          </div>
-        </div>
 
-        <div v-else-if="scanState === 'scanning'" class="scan-loading">
-          <div class="preview-img-box">
-            <img src="https://images.unsplash.com/photo-1586769852836-bc069f19e1b6?q=80&w=1470&auto=format&fit=crop" alt="Scan preview" />
-            <div class="scanner-line"></div>
-          </div>
-          <h3>AI 正在分析条款...</h3>
-          <p>正在识别租期、租金及违约责任等关键信息...</p>
-        </div>
-
-        <div v-else class="scan-review">
-          <div class="review-layout">
-            <div class="img-reference">
-              <h3>原件参考</h3>
-              <div class="ref-box">
-                <img src="https://images.unsplash.com/photo-1586769852836-bc069f19e1b6?q=80&w=1470&auto=format&fit=crop" alt="Contract source" />
-              </div>
-            </div>
-            
-            <div class="form-review">
-              <h3>识别结果核对</h3>
-              <div class="review-grid">
-                <div class="field active">
-                  <label>承租人姓名</label>
-                  <input type="text" v-model="ocrResults.tenantName" />
-                </div>
-                <div class="field">
-                  <label>证件号码</label>
-                  <input type="text" v-model="ocrResults.idNumber" />
-                </div>
-                <div class="field active">
-                  <label>月租金 (元)</label>
-                  <input type="number" v-model="ocrResults.rentAmount" />
-                </div>
-                <div class="field">
-                  <label>签约房屋</label>
-                  <input type="text" v-model="ocrResults.property" />
-                </div>
-                <div class="field">
-                  <label>生效周期</label>
-                  <div class="date-row">
-                    <input type="date" v-model="ocrResults.startDate" />
-                    <ArrowRight :size="14" />
-                    <input type="date" v-model="ocrResults.endDate" />
-                  </div>
-                </div>
-              </div>
-              <div class="review-footer">
-                <button class="secondary-btn" @click="scanState = 'idle'">重试</button>
-                <button class="primary-btn" @click="saveContract">确认并录入系统</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 

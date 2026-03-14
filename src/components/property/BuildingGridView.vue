@@ -16,6 +16,8 @@ import {
 } from '../../store'
 import { getProperties, getRooms, terminateLease, updateRoom } from '../../api/property'
 import LeaseModal from './LeaseModal.vue'
+import BaseDrawer from '../common/BaseDrawer.vue'
+import BaseModal from '../common/BaseModal.vue'
 
 const selectedBlock = ref<string>('')
 const selectedRoom = ref<any>(null)
@@ -270,10 +272,7 @@ const startResize = (e: MouseEvent) => {
   document.body.style.cursor = 'ew-resize'
 }
 
-const handleOverlayClick = () => {
-  // 保持开启，防止误触关闭丢失数据。仅能通过关闭按钮关闭。
-  return
-}
+/* handleOverlayClick removed as close-on-overlay is handled by BaseDrawer */
 
 const openPayment = () => {
   paymentAmount.value = selectedRoom.value.rent || 0
@@ -469,39 +468,42 @@ const handleTerminateLease = async () => {
       </div>
     </div>
 
-    <!-- Room Detail Drawer (Reuse) -->
-    <div v-if="isDrawerOpen" class="drawer-overlay" @click="handleOverlayClick">
-      <div 
-        class="detail-drawer glass animate-slide-left" 
-        :style="{ width: drawerWidth + 'px' }"
-        @click.stop
-      >
+    <!-- Room Detail Drawer (Refactored to BaseDrawer) -->
+    <BaseDrawer
+      :show="isDrawerOpen"
+      :width="drawerWidth"
+      :close-on-overlay="drawerWidth <= 450"
+      @close="isDrawerOpen = false"
+    >
+      <template #resize-handle>
         <div class="resize-info" v-if="drawerWidth > 450">
           已进入固定模式（点击遮罩层不再关闭）
         </div>
         <div class="resize-handle" @mousedown="startResize"></div>
-        <div class="drawer-header">
-          <div class="room-title">
-            <span class="room-num-badge" :class="getStatusClass(selectedRoom)">{{ selectedRoom.number }}</span>
-            <div class="title-meta">
-              <h3>房源详情</h3>
-              <span class="location-tag">{{ selectedBlock }}号楼 · {{ selectedRoom.type }}</span>
-            </div>
-          </div>
-          <div class="header-right-btns">
-            <button 
-              class="icon-btn star-toggle" 
-              :class="{ 'is-active': followedPropertyIds.has(selectedRoom.id) }"
-              @click="toggleFollowProperty(selectedRoom.id)"
-              :title="followedPropertyIds.has(selectedRoom.id) ? '取消关注' : '加入关注清单'"
-            >
-              <Star :size="20" :fill="followedPropertyIds.has(selectedRoom.id) ? 'var(--accent-warning)' : 'none'" />
-            </button>
-            <button class="close-btn" @click="isDrawerOpen = false"><X :size="20" /></button>
+      </template>
+
+      <template #header>
+        <div class="room-title">
+          <span class="room-num-badge" :class="getStatusClass(selectedRoom)">{{ selectedRoom.number }}</span>
+          <div class="title-meta">
+            <h3>房源详情</h3>
+            <span class="location-tag">{{ selectedBlock }}号楼 · {{ selectedRoom.type }}</span>
           </div>
         </div>
+      </template>
 
-        <div class="drawer-body">
+      <template #header-actions>
+        <button 
+          class="icon-btn star-toggle" 
+          :class="{ 'is-active': followedPropertyIds.has(selectedRoom.id) }"
+          @click="toggleFollowProperty(selectedRoom.id)"
+          :title="followedPropertyIds.has(selectedRoom.id) ? '取消关注' : '加入关注清单'"
+        >
+          <Star :size="20" :fill="followedPropertyIds.has(selectedRoom.id) ? 'var(--accent-warning)' : 'none'" />
+        </button>
+      </template>
+
+      <div class="drawer-body">
           <div v-if="!isDrawerEditing" class="top-action-group">
             <button v-if="selectedRoom.status === 'occupied'" class="pay-rent-btn action-item" @click="openPayment">
               <Wallet :size="16" /> 登记本月收租
@@ -715,122 +717,86 @@ const handleTerminateLease = async () => {
                   <textarea v-model="tempRoomData.remark" class="full-remark" placeholder="录入关于房源或租客的备注信息..."></textarea>
                 </div>
               </section>
-
-              <section class="edit-section">
-                <h4 class="edit-title">租期设置</h4>
-                <div class="edit-grid">
-                  <div class="input-wrap">
-                    <label>起租日期</label>
-                    <input v-model="tempRoomData.checkInDate" type="date" />
-                  </div>
-                  <div class="input-wrap">
-                    <label>到期日期</label>
-                    <input v-model="tempRoomData.leaseEndDate" type="date" />
-                  </div>
-                </div>
-              </section>
-
-              <section class="edit-section">
-                <h4 class="edit-title">状态更新</h4>
-                <div class="status-selector-grid">
-                  <button 
-                    v-for="s in (['vacant', 'occupied', 'maintenance'] as const)" 
-                    :key="s"
-                    class="status-pill"
-                    :class="[s, { active: tempRoomData.status === s }]"
-                    @click="tempRoomData.status = s"
-                  >
-                    {{ s === 'vacant' ? '待租' : s === 'occupied' ? '已租' : '维修' }}
-                  </button>
-                </div>
-              </section>
-            </div>
-            
-            <div class="drawer-footer-sticky">
-              <button class="btn-cancel" @click="isDrawerEditing = false">丢弃更改</button>
-              <button class="btn-save" @click="saveRoomDetail">确认保存</button>
             </div>
           </template>
         </div>
-      </div>
-    </div>
-  </div>
+      </BaseDrawer>
 
-  <!-- Template Selection Modal -->
-  <div v-if="isTemplateModalOpen" class="modal-overlay">
-    <div class="template-select-dialog glass card-animate-in">
-      <div class="dialog-header border-none">
-        <h3>选择配置模板</h3>
-        <button class="close-btn" @click="isTemplateModalOpen = false"><X :size="18" /></button>
-      </div>
-      <div class="template-list-compact">
-        <div 
-          v-for="tpl in propertyTemplates" 
-          :key="tpl.id" 
-          class="tpl-item-compact"
-          @click="applyTemplate(tpl)"
+        <!-- Template Selection Modal (Refactored to BaseModal) -->
+        <BaseModal
+          :show="isTemplateModalOpen"
+          title="选择配置模板"
+          maxWidth="400px"
+          @close="isTemplateModalOpen = false"
         >
-          <div class="tpl-item-main">
-            <span class="tpl-name-compact">{{ tpl.name }}</span>
-            <span class="tpl-meta-compact">{{ tpl.type }} | ¥{{ tpl.rent }}/月</span>
+          <div class="template-list-compact">
+            <div 
+              v-for="tpl in propertyTemplates" 
+              :key="tpl.id" 
+              class="tpl-item-compact"
+              @click="applyTemplate(tpl)"
+            >
+              <div class="tpl-item-main">
+                <span class="tpl-name-compact">{{ tpl.name }}</span>
+                <span class="tpl-meta-compact">{{ tpl.type }} | ¥{{ tpl.rent }}/月</span>
+              </div>
+              <ChevronRight :size="16" color="var(--text-muted)" />
+            </div>
           </div>
-          <ChevronRight :size="16" color="var(--text-muted)" />
-        </div>
-      </div>
+        </BaseModal>
+
+        <!-- Quick Payment Dialog (Refactored to BaseModal) -->
+        <BaseModal
+          :show="isPaymentModalOpen"
+          title="确认收租记录"
+          maxWidth="380px"
+          @close="isPaymentModalOpen = false"
+        >
+          <div class="payment-summary">
+            <div class="summary-item">
+              <span class="label">本月应收</span>
+              <span class="val">¥{{ selectedRoom?.rent }}</span>
+            </div>
+            <div class="status-indicator" :class="paymentAmount >= selectedRoom?.rent ? 'full' : 'partial'">
+              {{ paymentAmount >= selectedRoom?.rent ? '足额缴纳' : '部分补缴' }}
+            </div>
+          </div>
+          
+          <div class="form-item">
+            <label>实收金额 (元)</label>
+            <div class="amount-input-group">
+              <span class="currency">¥</span>
+              <input v-model="paymentAmount" type="number" step="0.01" />
+            </div>
+            <div class="preset-amounts">
+              <button @click="paymentAmount = selectedRoom?.rent">足额</button>
+              <button @click="paymentAmount = Math.floor((selectedRoom?.rent || 0) / 2)">50%</button>
+            </div>
+          </div>
+          
+          <div class="form-item mt-3">
+            <label>备注</label>
+            <textarea v-model="paymentNote" placeholder="可选填，如：微信转账、现金等"></textarea>
+          </div>
+
+          <template #footer>
+            <div class="dialog-footer-actions">
+              <button class="btn-cancel-plain" @click="isPaymentModalOpen = false">取消</button>
+              <button class="btn-confirm-pay" @click="confirmPayment">确认录入</button>
+            </div>
+          </template>
+        </BaseModal>
+
+        <!-- AI Assistant -->
+        <AIAssistant :data="blockStats" />
+
+        <LeaseModal 
+          :show="showLeaseModal" 
+          :room="selectedRoom?.raw" 
+          @close="showLeaseModal = false" 
+          @success="fetchBuildingData(); isDrawerOpen = false" 
+        />
     </div>
-  </div>
-
-  <!-- Quick Payment Dialog -->
-  <div v-if="isPaymentModalOpen" class="payment-modal-overlay">
-    <div class="payment-dialog glass card-animate-in">
-      <div class="dialog-header">
-        <h3>确认收租记录</h3>
-        <button @click="isPaymentModalOpen = false"><X :size="18"/></button>
-      </div>
-      <div class="dialog-body">
-        <div class="payment-summary">
-          <div class="summary-item">
-            <span class="label">本月应收</span>
-            <span class="val">¥{{ selectedRoom.rent }}</span>
-          </div>
-          <div class="status-indicator" :class="paymentAmount >= selectedRoom.rent ? 'full' : 'partial'">
-            {{ paymentAmount >= selectedRoom.rent ? '足额缴纳' : '部分补缴' }}
-          </div>
-        </div>
-        
-        <div class="form-item">
-          <label>实收金额 (元)</label>
-          <div class="amount-input-group">
-            <span class="currency">¥</span>
-            <input v-model="paymentAmount" type="number" step="0.01" />
-          </div>
-          <div class="preset-amounts">
-            <button @click="paymentAmount = selectedRoom.rent">足额</button>
-            <button @click="paymentAmount = Math.floor(selectedRoom.rent / 2)">50%</button>
-          </div>
-        </div>
-        
-        <div class="form-item mt-3">
-          <label>备注</label>
-          <textarea v-model="paymentNote" placeholder="可选填，如：微信转账、现金等"></textarea>
-        </div>
-      </div>
-      <div class="dialog-footer">
-        <button class="btn-cancel-plain" @click="isPaymentModalOpen = false">取消</button>
-        <button class="btn-confirm-pay" @click="confirmPayment">确认录入</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- AI Assistant -->
-  <AIAssistant :data="blockStats" />
-
-  <LeaseModal 
-    :show="showLeaseModal" 
-    :room="selectedRoom?.raw" 
-    @close="showLeaseModal = false" 
-    @success="fetchBuildingData(); isDrawerOpen = false" 
-  />
 </template>
 
 <style scoped>

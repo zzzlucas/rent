@@ -7,11 +7,13 @@ interface Props {
   subtitle?: string
   maxWidth?: string
   showClose?: boolean
+  closeOnOverlay?: boolean
 }
 
 withDefaults(defineProps<Props>(), {
   maxWidth: '600px',
-  showClose: true
+  showClose: true,
+  closeOnOverlay: false
 })
 
 const emit = defineEmits(['close'])
@@ -20,7 +22,11 @@ const emit = defineEmits(['close'])
 <template>
   <Teleport to="body">
     <Transition name="modal-fade">
-      <div v-if="show" class="base-modal-overlay">
+      <div 
+        v-if="show" 
+        class="base-modal-overlay"
+        @click.self="closeOnOverlay && emit('close')"
+      >
         <div 
           class="base-modal-container glass animate-modal-in" 
           :style="{ maxWidth }"
