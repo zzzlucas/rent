@@ -1150,25 +1150,52 @@ const handleTerminateLease = async () => {
   border-bottom: 1px solid var(--border-color);
 }
 
-.room-title {
+.detail-container {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 1.25rem;
 }
 
-.room-num-badge {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
+.header-main-title {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: 1.1rem;
+  gap: 10px;
 }
 
-.title-meta h3 { font-size: 1rem; margin-bottom: 2px; }
-.location-tag { font-size: 0.75rem; color: var(--text-muted); }
+.room-num-badge {
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-family: 'Fira Code', monospace;
+  font-weight: 800;
+  font-size: 0.9rem;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.room-num-badge.status-vacant { background: rgba(16, 185, 129, 0.1); color: #10b981; border-color: rgba(16, 185, 129, 0.2); }
+.room-num-badge.status-occupied { background: rgba(99, 102, 241, 0.1); color: var(--accent-primary); border-color: rgba(99, 102, 241, 0.2); }
+.room-num-badge.status-maintenance { background: rgba(239, 68, 68, 0.1); color: #ef4444; border-color: rgba(239, 68, 68, 0.2); }
+
+.header-main-title h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.drawer-header-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.meta-divider {
+  opacity: 0.3;
+}
 
 .drawer-body {
   flex: 1;

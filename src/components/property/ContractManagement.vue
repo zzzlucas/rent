@@ -20,6 +20,7 @@ import {
 import DataImportModal from './DataImportModal.vue'
 import BaseConfirm from '../common/BaseConfirm.vue'
 import ContractDetailDrawer from './ContractDetailDrawer.vue'
+import ManualContractModal from './ManualContractModal.vue'
 import { getContracts, terminateContract } from '../../api/contract'
 import { showToast } from '../../store'
 
@@ -33,6 +34,7 @@ const contractToTerminate = ref<number | null>(null)
 
 const showDetailDrawer = ref(false)
 const selectedContract = ref<any>(null)
+const showManualModal = ref(false)
 
 const fetchContracts = async () => {
   loading.value = true
@@ -147,6 +149,10 @@ const confirmTerminate = async () => {
           <Scan :size="20" />
           <span>AI 智绘录入</span>
         </button>
+        <button class="manual-btn" @click="showManualModal = true">
+          <Plus :size="20" />
+          <span>手动录入合同</span>
+        </button>
       </div>
     </div>
 
@@ -155,6 +161,12 @@ const confirmTerminate = async () => {
       initial-type="contracts" 
       :initial-mode="importMode"
       @close="showImportModal = false" 
+      @success="fetchContracts"
+    />
+
+    <ManualContractModal
+      :show="showManualModal"
+      @close="showManualModal = false"
       @success="fetchContracts"
     />
 
@@ -349,6 +361,25 @@ const confirmTerminate = async () => {
 .ai-scan-btn:hover {
   transform: translateY(-3px);
   box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4);
+}
+
+.manual-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 0.8rem 1.5rem;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-weight: 700;
+  transition: all 0.2s;
+}
+
+.manual-btn:hover {
+  border-color: var(--accent-primary);
+  background: var(--bg-card-hover);
+  transform: translateY(-2px);
 }
 
 .ai-scan-btn.mt-6 { margin-top: 1.5rem; }
