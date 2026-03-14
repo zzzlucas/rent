@@ -483,11 +483,15 @@ const handleTerminateLease = async () => {
       </template>
 
       <template #header>
-        <div class="room-title">
-          <span class="room-num-badge" :class="getStatusClass(selectedRoom)">{{ selectedRoom.number }}</span>
-          <div class="title-meta">
+        <div class="drawer-header-content">
+          <div class="header-main-title">
+            <span class="room-num-badge" :class="getStatusClass(selectedRoom)">{{ selectedRoom.number }}</span>
             <h3>房源详情</h3>
-            <span class="location-tag">{{ selectedBlock }}号楼 · {{ selectedRoom.type }}</span>
+          </div>
+          <div class="drawer-header-meta">
+            <span class="meta-item">{{ selectedBlock }}号楼</span>
+            <span class="meta-divider">·</span>
+            <span class="meta-item">{{ selectedRoom.type }}</span>
           </div>
         </div>
       </template>
@@ -503,41 +507,45 @@ const handleTerminateLease = async () => {
         </button>
       </template>
 
-      <div class="drawer-body">
-          <div v-if="!isDrawerEditing" class="top-action-group">
-            <button v-if="selectedRoom.status === 'occupied'" class="pay-rent-btn action-item" @click="openPayment">
-              <Wallet :size="16" /> 登记本月收租
-            </button>
-            <button v-if="selectedRoom.status === 'vacant'" class="pay-rent-btn action-item primary" @click="openLease">
-              <LogIn :size="16" /> 办理签约入住
-            </button>
-            <button v-if="selectedRoom.status === 'occupied'" class="pay-rent-btn action-item danger" @click="handleTerminateLease">
-              <LogOut :size="16" /> 办理退租
-            </button>
+      <div class="detail-container">
+          <div v-if="!isDrawerEditing" class="drawer-section">
+            <div class="top-action-group">
+              <button v-if="selectedRoom.status === 'occupied'" class="pay-rent-btn action-item" @click="openPayment">
+                <Wallet :size="16" /> 登记本月收租
+              </button>
+              <button v-if="selectedRoom.status === 'vacant'" class="pay-rent-btn action-item primary" @click="openLease">
+                <LogIn :size="16" /> 办理签约入住
+              </button>
+              <button v-if="selectedRoom.status === 'occupied'" class="pay-rent-btn action-item danger" @click="handleTerminateLease">
+                <LogOut :size="16" /> 办理退租
+              </button>
+            </div>
           </div>
 
           <!-- View Mode -->
           <template v-if="!isDrawerEditing">
             <!-- Stats Row -->
-            <div class="drawer-stats-grid">
-              <div class="d-stat">
-                <span class="d-label">月租金</span>
-                <span class="d-val highlight">¥{{ selectedRoom.rent?.toLocaleString() }}</span>
-              </div>
-              <div class="d-stat">
-                <span class="d-label">当前状态</span>
-                <span class="d-val" :class="selectedRoom.paymentStatus">
-                  {{ selectedRoom.paymentStatus === 'normal' ? '正常履约' : selectedRoom.paymentStatus === 'near_due' ? '待缴费' : '已逾期' }}
-                </span>
+            <div class="drawer-section">
+              <div class="drawer-stats-grid">
+                <div class="d-stat">
+                  <span class="d-label">月租金</span>
+                  <span class="d-val highlight">¥{{ selectedRoom.rent?.toLocaleString() }}</span>
+                </div>
+                <div class="d-stat">
+                  <span class="d-label">当前状态</span>
+                  <span class="d-val" :class="selectedRoom.paymentStatus">
+                    {{ selectedRoom.paymentStatus === 'normal' ? '正常履约' : selectedRoom.paymentStatus === 'near_due' ? '待缴费' : '已逾期' }}
+                  </span>
+                </div>
               </div>
             </div>
 
-            <section class="info-group">
-              <div class="group-header">
-                <h4>租约信息</h4>
+            <div class="drawer-section">
+              <div class="drawer-section-title">
+                租约信息
                 <button class="edit-link" @click="startEditing"><Edit3 :size="14" /> 编辑</button>
               </div>
-              <div class="kv-list">
+              <div class="drawer-card kv-list">
                 <div class="kv-item">
                   <span class="k">租赁模式</span>
                   <span class="v">{{ selectedRoom.paymentType || '未设置' }}</span>
@@ -555,12 +563,10 @@ const handleTerminateLease = async () => {
                   <span class="v">¥{{ selectedRoom.deposit?.toLocaleString() || '0' }}</span>
                 </div>
               </div>
-            </section>
+            </div>
             
-            <section class="info-group" v-if="selectedRoom.status === 'occupied'">
-              <div class="group-header">
-                <h4>租客信息</h4>
-              </div>
+            <div class="drawer-section" v-if="selectedRoom.status === 'occupied'">
+              <div class="drawer-section-title">租客信息</div>
               <div class="tenant-card-rich">
                 <div class="t-main">
                   <div class="t-avatar" :class="selectedRoom.tenantGender">{{ selectedRoom.tenantName?.charAt(0) || '?' }}</div>
@@ -589,21 +595,17 @@ const handleTerminateLease = async () => {
                   <div class="mini-switch" :class="{ on: selectedRoom.smsReminder }"></div>
                 </div>
               </div>
-            </section>
+            </div>
 
-            <section class="info-group">
-              <div class="group-header">
-                <h4>房源备注</h4>
-              </div>
+            <div class="drawer-section">
+              <div class="drawer-section-title">房源备注</div>
               <div class="remark-content">
                 {{ selectedRoom.remark || '暂无备注信息' }}
               </div>
-            </section>
+            </div>
 
-            <section class="info-group">
-              <div class="group-header">
-                <h4>房源配套</h4>
-              </div>
+            <div class="drawer-section">
+              <div class="drawer-section-title">房源配套</div>
               <div class="amenities-grid">
                 <div class="amen-item active">空调</div>
                 <div class="amen-item active">洗衣机</div>
@@ -611,7 +613,7 @@ const handleTerminateLease = async () => {
                 <div class="amen-item active">宽带</div>
                 <div class="amen-item">冰箱</div>
               </div>
-            </section>
+            </div>
           </template>
 
           <!-- Edit Mode -->

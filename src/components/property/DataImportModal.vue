@@ -3,6 +3,8 @@ import { ref, onMounted, computed } from 'vue'
 import { Upload, Download, FileText, CheckCircle2, HelpCircle, Sparkles, AlertCircle, Check, User, ShieldCheck, CreditCard, Wrench, Camera, Wand2, Terminal, Cpu, LayoutGrid } from 'lucide-vue-next'
 import BaseModal from '../common/BaseModal.vue'
 import { chatProxy, fetchAiModels } from '../../api/ai'
+import { createContract } from '../../api/contract'
+import { showToast } from '../../store'
 
 const props = defineProps<{
   show: boolean
@@ -10,7 +12,7 @@ const props = defineProps<{
   initialMode?: 'excel' | 'ai_scan'
 }>()
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'success'])
 
 const step = ref(1) // 1: Select/Upload, 2: AI Preprocessing/OCR, 3: AI Confirmation, 4: Final Processing, 5: Completed
 const importType = ref(props.initialType || 'properties')
@@ -29,6 +31,8 @@ const ocrResultText = ref('')
 const extractedFields = ref<any[]>([])
 const batchQueue = ref<{name: string, status: 'pending'|'processing'|'done'|'error', progress: number}[]>([])
 const currentBatchIndex = ref(-1)
+const batchResults = ref<{fileName: string, previewUrl: string, fields: any[], status: 'pending'|'saved'}[]>([])
+const activeResultIndex = ref(0)
 
 // Recognition History & Estimation
 const recognitionHistory = ref<any[]>(JSON.parse(localStorage.getItem('contract_scan_history') || '[]'))
@@ -118,7 +122,7 @@ const handleFileUpload = async (e: Event) => {
       startProgressTimer(totalEst)
       addLog(`⚡ 预计处理耗时: 约 ${totalEst} 秒 (基于历史模型表现)`, 'info')
       
-      let allOcrResults = ''
+      batchResults.value = []
       
       for (let i = 0; i < files.length; i++) {
         currentBatchIndex.value = i
@@ -132,16 +136,26 @@ const handleFileUpload = async (e: Event) => {
         })
         
         fileBase64.value = fileContent.split(',')[1]
-        previewUrl.value = fileContent
         
-        const result = await processSingleFile(file.name, i)
-        allOcrResults += `\n--- 文件: ${file.name} ---\n${result}`
+        const ocrText = await processSingleFile(file.name, i)
+        const fields = await extractFieldsFromText(ocrText, file.name)
+        
+        batchResults.value.push({
+          fileName: file.name,
+          previewUrl: fileContent,
+          fields: fields,
+          status: 'pending'
+        })
+        
         batchQueue.value[i].status = 'done'
         batchQueue.value[i].progress = 100
       }
       
-      ocrResultText.value = allOcrResults
-      await finalizeStructuredExtraction(allOcrResults)
+      activeResultIndex.value = 0
+      addLog('🎊 批量扫描已完成，进入核对环节。', 'success')
+      setTimeout(() => {
+        step.value = 3
+      }, 800)
       
       const duration = (Date.now() - startTime) / 1000
       saveHistory({
@@ -187,27 +201,23 @@ const processSingleFile = async (name: string, index: number) => {
   }
 }
 
-const finalizeStructuredExtraction = async (text: string) => {
-  addLog(`🧠 正在整合所有页面并进行深度语义提取 (${selectedLlmModel.value})...`, 'info')
+const extractFieldsFromText = async (text: string, fileName: string) => {
+  addLog(`🧠 正在深度分析 [${fileName}] 的合同语义...`, 'info')
   try {
     const extractResp = await chatProxy({
       model: selectedLlmModel.value,
       messages: [
-        { role: 'system', content: '你是一个专业的租赁合同分析助手。请根据提供的 OCR 文字，提取关键字段并输出为 JSON 数组格式，每个对象包含 field, original(文字原值), fixed(建议修正值), reason(原因)。若无修正，fixed同original。' },
-        { role: 'user', content: `请分析以下合同文本(包含多个文件/页面)并提取：合同编号、甲方、乙方、房屋地址、月租金金额(数字)、租期开始日、租期结束日、押金。文字内容：\n${text}` }
+        { role: 'system', content: '你是一个专业的租赁合同分析助手。请根据提供的 OCR 文字，提取关键字段并输出为 JSON 数组格式。每个对象包含 field, original(文字原值), fixed(建议修正值), reason(原因)。要求：1. 日期格式统一修正为 YYYY-MM-DD；2. 租金和押金提取为纯数字；3. 若原件模糊或未提供，fixed 留空。' },
+        { role: 'user', content: `请分析以下合同文本并提取：合同编号、甲方、乙方、手机号、房屋地址、月租金金额、租期开始日、租期结束日、押金。文字内容：\n${text}` }
       ]
     })
 
     const content = extractResp.choices[0].message.content
     const jsonStr = content.match(/\[[\s\S]*\]/)?.[0] || '[]'
-    extractedFields.value = JSON.parse(jsonStr)
-    
-    addLog('🎊 批量结构化分析已完成，请核对信息。', 'success')
-    setTimeout(() => {
-      step.value = 3
-    }, 1000)
+    return JSON.parse(jsonStr)
   } catch (err: any) {
-    addLog(`❌ 结构化提取失败: ${err.message}`, 'error')
+    addLog(`❌ [${fileName}] 语义分析失败: ${err.message}`, 'error')
+    return []
   }
 }
 
@@ -241,8 +251,8 @@ const startAiScanProcess = async () => {
     const extractResp = await chatProxy({
       model: selectedLlmModel.value,
       messages: [
-        { role: 'system', content: '你是一个专业的租赁合同分析助手。请根据提供的 OCR 文字，提取关键字段并输出为 JSON 数组格式，每个对象包含 field, original(文字原值), fixed(建议修正值), reason(原因)。若无修正，fixed同original。' },
-        { role: 'user', content: `请分析以下合同文本并提取：合同编号、甲方、乙方、房屋地址、月租金金额(数字)、租期开始日、租期结束日、押金。文字内容：\n${ocrResultText.value}` }
+        { role: 'system', content: '你是一个专业的租赁合同分析助手。请根据提供的 OCR 文字，提取关键字段并输出为 JSON 数组格式。每个对象包含 field, original(文字原值), fixed(建议修正值), reason(原因)。要求：1. 日期格式统一修正为 YYYY-MM-DD；2. 租金和押金提取为纯数字；3. 若原件模糊或未提供，fixed 留空。' },
+        { role: 'user', content: `请分析以下合同文本并提取：合同编号、甲方、乙方、手机号、房屋地址、月租金金额、租期开始日、租期结束日、押金。文字内容：\n${ocrResultText.value}` }
       ]
     })
 
@@ -272,17 +282,76 @@ const startAIPreprocessing = () => {
   }, 2500)
 }
 
-const confirmAIResults = () => {
-  step.value = 4
-  setTimeout(() => {
-    step.value = 5
-  }, 1500)
+
+
+const confirmAIResults = async () => {
+  const current = batchResults.value[activeResultIndex.value]
+  if (!current || current.status === 'saved') return
+  
+  const findValue = (fieldName: string) => {
+    const found = current.fields.find(f => f.field.includes(fieldName))
+    return found ? found.fixed || found.original : ''
+  }
+
+  const payload = {
+    customerName: findValue('乙方') || findValue('承租人'),
+    customerPhone: findValue('手机'),
+    roomNumber: findValue('房号') || findValue('房间') || findValue('号码'),
+    propertyName: findValue('物业') || findValue('地址') || findValue('甲方'),
+    startDate: findValue('开始') || findValue('起始'),
+    endDate: findValue('结束') || findValue('到期'),
+    actualRentPrice: Math.round((parseFloat(findValue('租金')) || 0) * 100),
+    deposit: Math.round((parseFloat(findValue('押金')) || 0) * 100)
+  }
+
+  // Basic cleanup for fuzzy matches
+  if (payload.propertyName && payload.propertyName.includes('甲方')) {
+    payload.propertyName = payload.propertyName.replace(/.*甲方[:：\s]*/, '')
+  }
+  
+  // Logic to split property and room if extracted together
+  if (payload.roomNumber && payload.roomNumber.includes('号楼')) {
+    const parts = payload.roomNumber.split(/[\s,，]+/)
+    if (parts.length > 1) {
+      if (!payload.propertyName) payload.propertyName = parts[0]
+      payload.roomNumber = parts[parts.length - 1]
+    }
+  }
+
+  try {
+    const res = await createContract(payload)
+    if (res.code === 0) {
+      current.status = 'saved'
+      showToast(`[${current.fileName}] 录入成功`)
+      
+      // Auto move to next one if exists
+      if (activeResultIndex.value < batchResults.value.length - 1) {
+        activeResultIndex.value++
+      } else if (batchResults.value.every(r => r.status === 'saved')) {
+        step.value = 5
+        emit('success')
+      }
+    }
+  } catch (err: any) {
+    showToast(`[${current.fileName}] ${err.message || '录入失败'}`, 'error')
+  }
+}
+
+const batchSaveAll = async () => {
+  addLog('🚀 开始批量入库...', 'info')
+  for (let i = 0; i < batchResults.value.length; i++) {
+    if (batchResults.value[i].status === 'pending') {
+      activeResultIndex.value = i
+      await confirmAIResults()
+    }
+  }
 }
 
 const startFinalImport = () => {
   step.value = 4
   setTimeout(() => {
     step.value = 5
+    emit('success')
   }, 2000)
 }
 
@@ -327,6 +396,18 @@ const handleModalClose = () => {
   }
 }
 
+const isProcessingBatch = computed(() => batchResults.value.some(r => r.status === 'processing'))
+
+const showImageMagnifier = ref(false)
+const magnifierImageUrl = ref('')
+
+const openMagnifier = (url: string) => {
+  magnifierImageUrl.value = url
+  showImageMagnifier.value = true
+}
+
+// AI Model Handling
+const aiModels = ref<any[]>([])
 const ocrModels = computed(() => availableModels.value.filter(m => m.type === 'vision'))
 const llmModels = computed(() => availableModels.value.filter(m => m.type === 'text' || m.type === 'thinking'))
 
@@ -351,8 +432,8 @@ onMounted(async () => {
   <BaseModal 
     :show="show && !isMinimized" 
     :title="step === 3 ? 'AI 解析结果核对' : '数据录入中心'"
-    :subtitle="step === 3 ? '请核对 AI 从合同中提取的关键信息' : '支持 Excel 批量导入或 AI 拍照识别录入'"
-    max-width="750px"
+    :subtitle="step === 3 ? '请核对 AI 从合同中提取的关键信息，确认无误后入库。' : '支持 Excel 批量导入及 AI 智能识别录入'"
+    :max-width="step === 3 ? '1200px' : '850px'"
     @close="handleModalClose"
   >
     <template #header-actions>
@@ -526,42 +607,88 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- Step 3: AI Confirmation -->
-      <div v-else-if="step === 3" class="step-content confirmation">
-        <div class="result-layout">
-          <div v-if="previewUrl" class="image-preview-side">
-            <img :src="previewUrl" alt="Contract Preview" />
-            <div class="preview-tag">原始凭证</div>
-          </div>
-          <div class="fields-side">
-            <div class="ai-results-table">
-              <div class="res-head">
-                <span>字段名</span>
-                <span>识别值</span>
-                <span>建议修正</span>
-              </div>
-              <div v-for="(res, idx) in extractedFields" :key="idx" class="res-row">
-                <div class="res-field">{{ res.field }}</div>
-                <div class="res-old" :class="{ 'strike-out': res.original !== res.fixed && res.original !== '未提供' }">
-                  {{ res.original }}
-                </div>
-                <div class="res-new" :class="{ changed: res.original !== res.fixed }">
-                  <div class="edit-input-wrapper">
-                    <input type="text" v-model="res.fixed" class="inline-edit" placeholder="点击修正..." />
+      <!-- Step 3: AI Confirmation (Batch Mode) -->
+      <div v-else-if="step === 3" class="step-content batch-confirmation">
+        <div class="batch-layout">
+          <!-- Sidebar: Batch Navigation -->
+          <div class="batch-sidebar glass">
+            <div class="sidebar-header">
+              <span>待核对 ({{ batchResults.length }})</span>
+            </div>
+            <div class="sidebar-list custom-scrollbar">
+              <div 
+                v-for="(item, idx) in batchResults" 
+                :key="idx" 
+                class="batch-nav-item"
+                :class="{ active: activeResultIndex === idx, saved: item.status === 'saved' }"
+                @click="activeResultIndex = idx"
+              >
+                <div class="nav-thumb">
+                  <img :src="item.previewUrl" alt="Thumbnail" />
+                  <div v-if="item.status === 'saved'" class="saved-overlay">
+                    <Check :size="16" />
                   </div>
-                  <div v-if="res.original !== res.fixed && res.reason" class="res-tag-v2">
-                    {{ res.reason }}
+                </div>
+                <div class="nav-info">
+                  <div class="nav-name">{{ item.fileName }}</div>
+                  <div class="nav-status">
+                    {{ item.status === 'saved' ? '已入库' : '等待核对' }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="sidebar-footer">
+              <button class="batch-all-btn" @click="batchSaveAll">
+                <CheckCircle2 :size="14" /> 批量入库
+              </button>
+            </div>
+          </div>
+
+          <!-- Main Content: Current Result -->
+          <div v-if="batchResults[activeResultIndex]" class="batch-main animate-in">
+            <div class="result-layout">
+              <div class="image-preview-side" @click="openMagnifier(batchResults[activeResultIndex].previewUrl)">
+                <img :src="batchResults[activeResultIndex].previewUrl" alt="Contract Preview" />
+                <div class="preview-tag">原始凭证</div>
+                <div class="preview-actions">
+                  <button class="icon-btn-mini" title="放大" @click.stop="openMagnifier(batchResults[activeResultIndex].previewUrl)">
+                    <Search :size="14" />
+                  </button>
+                  <button class="icon-btn-mini" title="下载" @click.stop="">
+                    <Download :size="14" />
+                  </button>
+                </div>
+              </div>
+              <div class="fields-side">
+                <div class="ai-results-table">
+                  <div class="res-head">
+                    <span>关键字段</span>
+                    <span>识别原值</span>
+                    <span>录入修正</span>
+                  </div>
+                  <div class="res-body custom-scrollbar">
+                    <div v-for="(res, idx) in batchResults[activeResultIndex].fields" :key="idx" class="res-row">
+                      <div class="res-field">
+                        <span class="field-dot"></span>
+                        {{ res.field }}
+                      </div>
+                      <div class="res-old" :title="res.original" :class="{ 'strike-out': res.original !== res.fixed && res.original !== '未提供' }">
+                        {{ res.original }}
+                      </div>
+                      <div class="res-new" :class="{ changed: res.original !== res.fixed }">
+                        <div class="edit-input-wrapper">
+                          <input type="text" v-model="res.fixed" class="inline-edit" placeholder="点击修正..." />
+                        </div>
+                        <div v-if="res.original !== res.fixed && res.reason" class="res-tag-v2">
+                          {{ res.reason }}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-        <div class="conf-actions">
-          <button class="secondary-btn" @click="step = 1">重新上传</button>
-          <button class="primary-btn ai-btn" @click="confirmAIResults">
-            <Check :size="18" /> 确认录入中台
-          </button>
         </div>
       </div>
 
@@ -612,13 +739,57 @@ onMounted(async () => {
             </div>
           </div>
         </div>
-
-        <div class="success-footer">
-          <button class="primary-btn finish-btn" @click="reset">完成并关闭</button>
-        </div>
       </div>
     </div>
+    <template #footer>
+      <!-- Step 1 Footer (Optional) -->
+      <div v-if="step === 1" class="step-footer-simple">
+        <p class="footer-hint" v-if="entryMode === 'ai_scan'">
+          <Sparkles :size="12" /> 高级 OCR 识别 + 语义建模通常需要 5~15 秒不等，请耐心等待。
+        </p>
+      </div>
+
+      <!-- Step 3 Footer: Batch Review Actions -->
+      <div v-else-if="step === 3" class="conf-actions-batch-fixed">
+        <div class="batch-tip">
+          <Sparkles :size="14" class="spark-icon" />
+          <span>建议优先核对表格中 <span class="highlight">标红或标绿</span> 的异常/修正项</span>
+        </div>
+        <div class="action-buttons">
+          <button class="btn-outline-premium" @click="step = 1">重新上传</button>
+          <button 
+            class="btn-primary-premium" 
+            :disabled="batchResults[activeResultIndex]?.status === 'saved'"
+            @click="confirmAIResults"
+          >
+            <Check :size="18" /> 
+            {{ batchResults[activeResultIndex]?.status === 'saved' ? '当前项已录入成功' : '确认录入中台' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 5 Completed Footer -->
+      <div v-else-if="step === 5" class="modal-footer-centered">
+        <button class="primary-btn finish-btn" @click="reset">
+          <CheckCircle2 :size="18" /> 完成并返回
+        </button>
+      </div>
+    </template>
   </BaseModal>
+
+  <!-- Image Magnifier Overlay -->
+  <Teleport to="body">
+    <Transition name="fade">
+      <div v-if="showImageMagnifier" class="image-magnifier-overlay" @click="showImageMagnifier = false">
+        <div class="magnifier-content" @click.stop>
+          <img :src="magnifierImageUrl" alt="Enlarged Preview" />
+          <button class="mag-close-btn" @click="showImageMagnifier = false">
+            <X :size="24" />
+          </button>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 
   <!-- Minimized AI Progress Pill -->
   <Teleport to="body">
@@ -1435,4 +1606,318 @@ onMounted(async () => {
   font-weight: 700;
   text-decoration: underline;
 }
+/* Batch Confirmation Layout */
+.batch-confirmation {
+  height: 650px;
+  display: flex;
+  flex-direction: column;
+}
+
+.batch-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 2rem;
+  height: 100%;
+  overflow: hidden;
+}
+
+.batch-sidebar {
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  overflow: hidden;
+}
+
+.sidebar-header {
+  padding: 1 gadget 1.25rem;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-input);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebar-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.batch-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+  margin-bottom: 8px;
+  border: 1px solid transparent;
+}
+
+.batch-nav-item:hover {
+  background: var(--bg-input);
+  transform: translateX(4px);
+}
+
+.batch-nav-item.active {
+  background: var(--bg-card);
+  border-color: var(--accent-primary);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.batch-nav-item.saved {
+  opacity: 0.6;
+}
+
+.nav-thumb {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+  background: var(--bg-input);
+  flex-shrink: 0;
+  border: 1px solid var(--border-color);
+}
+
+.nav-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.saved-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(16, 185, 129, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+}
+
+.nav-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.nav-name {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav-status {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.sidebar-footer {
+  padding: 1.25rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.batch-all-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--accent-primary);
+  color: white;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.batch-all-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.batch-main {
+  display: flex;
+  flex-direction: column;
+  height: 520px; /* Force a height to make internal scroll work */
+  min-width: 0;
+  overflow: hidden;
+}
+
+.result-layout {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 1.5rem;
+  height: 100%;
+}
+
+.conf-actions-batch-fixed {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.step-footer-simple {
+  width: 100%;
+}
+
+.footer-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+}
+
+.batch-tip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.spark-icon {
+  color: #a855f7;
+  animation: pulse 2s infinite;
+}
+
+.batch-tip .highlight {
+  color: #f43f5e;
+  font-weight: 800;
+}
+
+/* Image Magnifier */
+.image-magnifier-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  backdrop-filter: blur(10px);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.magnifier-content {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.magnifier-content img {
+  max-width: 100%;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+}
+
+.mag-close-btn {
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  background: white;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  transition: all 0.2s;
+}
+
+.mag-close-btn:hover {
+  transform: scale(1.1);
+}
+
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 1rem;
+}
+
+.btn-outline-premium {
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 0 1.5rem;
+  height: 46px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-outline-premium:hover {
+  background: var(--bg-card);
+  border-color: var(--text-muted);
+}
+
+.btn-primary-premium {
+  min-width: 200px;
+  background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  color: white;
+  padding: 0 2rem;
+  height: 46px;
+  border-radius: 12px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.2);
+}
+
+.btn-primary-premium:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(168, 85, 247, 0.3);
+}
+
+.btn-primary-premium:disabled {
+  background: #94a3b8;
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 0.8;
+}
 </style>
+

@@ -90,7 +90,7 @@ const emit = defineEmits(['close'])
 }
 
 .base-drawer-header {
-  padding: 1.5rem;
+  padding: 1.25rem 1rem;
   border-bottom: 1px solid var(--border-color);
   display: flex;
   align-items: center;
@@ -131,11 +131,11 @@ const emit = defineEmits(['close'])
 .base-drawer-body {
   flex: 1;
   overflow-y: auto;
-  padding: 1.5rem;
+  padding: 1.25rem 1rem;
 }
 
 .base-drawer-footer {
-  padding: 1.5rem;
+  padding: 1.25rem 1rem;
   border-top: 1px solid var(--border-color);
   flex-shrink: 0;
 }
@@ -173,5 +173,42 @@ const emit = defineEmits(['close'])
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+
+/* Global Drawer Utility Classes */
+:deep(.drawer-section) {
+  margin-bottom: 1.5rem;
+}
+
+:deep(.drawer-section:last-child) {
+  margin-bottom: 0;
+}
+
+:deep(.drawer-section-title) {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+:deep(.drawer-card) {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 1rem;
+}
+
+:deep(.drawer-header-meta) {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 </style>
