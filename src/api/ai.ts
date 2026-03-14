@@ -1,4 +1,4 @@
-import { request } from './client'
+import { request, BASE_URL } from './client'
 
 export async function chatProxy(payload: { messages: any[], model?: string, stream?: boolean }) {
   const { messages, model, stream = false } = payload
@@ -11,7 +11,7 @@ export async function chatProxy(payload: { messages: any[], model?: string, stre
       headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`
     }
 
-    return fetch('/api/ai/proxy', {
+    return fetch(`${BASE_URL}/ai/proxy`, {
       method: 'POST',
       headers,
       body: JSON.stringify({

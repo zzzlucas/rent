@@ -1,4 +1,6 @@
-const BASE_URL = '/api'
+export const BASE_URL = import.meta.env.PROD 
+  ? (import.meta.env.VITE_API_BASE_URL || '') 
+  : '/api'
 
 export async function request(url: string, options: RequestInit = {}) {
   const token = localStorage.getItem('token')
