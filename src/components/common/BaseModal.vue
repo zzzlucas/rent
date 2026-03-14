@@ -36,6 +36,9 @@ const emit = defineEmits(['close'])
               <h3>{{ title }}</h3>
               <p v-if="subtitle" class="subtitle">{{ subtitle }}</p>
             </div>
+            <div v-if="$slots['header-actions']" class="header-actions">
+              <slot name="header-actions"></slot>
+            </div>
           </header>
 
           <!-- Content -->
@@ -91,6 +94,15 @@ const emit = defineEmits(['close'])
   padding: 2rem 4rem 1.5rem 2rem; /* Extra right padding for close button */
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  margin-right: 1.5rem;
 }
 
 .header-text h3 {

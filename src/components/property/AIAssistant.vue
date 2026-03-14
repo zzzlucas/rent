@@ -96,10 +96,13 @@ const finalizeAnalysis = async () => {
   只返回 JSON，不要有其他描述。`
 
   try {
-    const response = await chatProxy([
-      { role: 'system', content: 'You are a professional property management AI assistant. Always output valid JSON.' },
-      { role: 'user', content: prompt }
-    ], true)
+    const response = await chatProxy({
+      messages: [
+        { role: 'system', content: 'You are a professional property management AI assistant. Always output valid JSON.' },
+        { role: 'user', content: prompt }
+      ],
+      stream: true
+    })
     
     const reader = response.body?.getReader()
     const decoder = new TextDecoder()
@@ -234,7 +237,7 @@ const sendMessage = async () => {
       ...chatMessages.value.slice(0, -1).map(m => ({ role: m.role, content: m.text })),
     ]
 
-    const response = await chatProxy(messages, true)
+    const response = await chatProxy({ messages, stream: true })
     const reader = response.body?.getReader()
     const decoder = new TextDecoder()
     
@@ -499,7 +502,9 @@ const formatSummary = (text: string) => {
 }
 
 .ai-float-btn.active {
-  background: #1f2937;
+  background: var(--bg-surface);
+  color: var(--accent-primary);
+  border: 1px solid var(--accent-primary);
   transform: rotate(90deg);
 }
 
@@ -797,7 +802,7 @@ const formatSummary = (text: string) => {
 
 /* Chat Interface Styles */
 .chat-interface {
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--bg-input);
   border-radius: 16px;
   padding: 1rem;
   margin-bottom: 2rem;

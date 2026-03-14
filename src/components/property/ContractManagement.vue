@@ -304,7 +304,7 @@ const showImportModal = ref(false)
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.8);
+  background: var(--overlay-bg);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
@@ -315,12 +315,14 @@ const showImportModal = ref(false)
 .modal-content {
   width: 90%;
   max-width: 480px;
-  background: var(--bg-sidebar);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
   border-radius: 24px;
   padding: 3rem 2rem;
   text-align: center;
   position: relative;
   transition: max-width 0.4s ease;
+  box-shadow: var(--glass-shadow);
 }
 
 .modal-content.wide {
@@ -345,9 +347,9 @@ const showImportModal = ref(false)
 .phone-mockup {
   width: 100px;
   height: 160px;
-  background: #222;
+  background: var(--bg-input);
   border-radius: 16px;
-  border: 4px solid #333;
+  border: 1px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -377,19 +379,19 @@ const showImportModal = ref(false)
 }
 
 .secondary-btn {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
   padding: 0.8rem 1.25rem;
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   gap: 0.5rem;
   font-weight: 700;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #fff;
+  border: 1px solid var(--accent-primary);
+  color: var(--accent-primary);
   cursor: pointer;
   transition: all 0.2s;
 }
-.secondary-btn:hover { background: rgba(255, 255, 255, 0.15); border-color: var(--accent-primary); }
+.secondary-btn:hover { background: rgba(99, 102, 241, 0.05); transform: translateY(-1px); }
 
 .upload-link {
   display: flex;
@@ -455,7 +457,7 @@ const showImportModal = ref(false)
   width: 100%;
   height: 100%;
   object-fit: contain;
-  background: #000;
+  background: var(--bg-input);
 }
 
 .review-grid {
@@ -478,11 +480,11 @@ const showImportModal = ref(false)
 }
 
 .field input {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--glass-border);
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
   padding: 0.75rem;
   border-radius: 8px;
-  color: white;
+  color: var(--text-primary);
   transition: border-color 0.2s;
 }
 
@@ -506,7 +508,7 @@ const showImportModal = ref(false)
 }
 
 .glass {
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--glass-bg);
   backdrop-filter: blur(12px);
 }
 

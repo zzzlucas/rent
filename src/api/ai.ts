@@ -1,6 +1,7 @@
 import { request } from './client'
 
-export async function chatProxy(messages: any[], stream = false) {
+export async function chatProxy(payload: { messages: any[], model?: string, stream?: boolean }) {
+  const { messages, model, stream = false } = payload
   if (stream) {
     const token = localStorage.getItem('token')
     const headers: any = {
@@ -15,6 +16,7 @@ export async function chatProxy(messages: any[], stream = false) {
       headers,
       body: JSON.stringify({
         messages,
+        model,
         stream: true
       })
     })
@@ -24,7 +26,14 @@ export async function chatProxy(messages: any[], stream = false) {
     method: 'POST',
     body: JSON.stringify({
       messages,
+      model,
       stream: false
     })
+  })
+}
+
+export async function fetchAiModels() {
+  return request('/ai/proxy/models', {
+    method: 'GET'
   })
 }

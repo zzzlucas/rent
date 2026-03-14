@@ -436,7 +436,7 @@ const showImportModal = ref(false)
 }
 
 .secondary-btn {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-card);
   padding: 0.8rem 1.25rem;
   border-radius: var(--radius-md);
   display: flex;
@@ -444,12 +444,12 @@ const showImportModal = ref(false)
   gap: 0.5rem;
   font-weight: 700;
   font-size: 0.85rem;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid var(--border-color);
   cursor: pointer;
-  color: #fff;
+  color: var(--text-primary);
   transition: all 0.2s;
 }
-.secondary-btn:hover { background: rgba(255, 255, 255, 0.15); border-color: var(--accent-primary); }
+.secondary-btn:hover { background: var(--bg-card-hover); border-color: var(--accent-primary); }
 
 .finance-table {
   width: 100%;
@@ -635,11 +635,11 @@ const showImportModal = ref(false)
 
 .modal-content {
   width: 480px;
-  background: #18181b;
-  border: 1px solid var(--glass-border);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
   border-radius: 20px;
   padding: 2rem;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--glass-shadow);
 }
 
 .modal-header {
@@ -742,11 +742,11 @@ const showImportModal = ref(false)
 }
 
 input, select {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-input);
   border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 0.75rem;
-  color: white;
+  color: var(--text-primary);
   outline: none;
 }
 
@@ -780,7 +780,7 @@ input:focus, select:focus {
 }
 
 .cancel-btn {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-input);
   color: var(--text-secondary);
   padding: 0.85rem;
   border-radius: 10px;

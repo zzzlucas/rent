@@ -989,7 +989,7 @@ const handleTerminateLease = async () => {
 .dot.warning { background: var(--accent-warning); }
 .dot.overdue { background: var(--accent-danger); }
 .dot.vacant { background: transparent; border: 1px dashed var(--text-muted); }
-.dot.maintenance { background: #7f1d1d; }
+.dot.maintenance { background: var(--accent-danger); }
 .dot.unmanaged { background: var(--status-unmanaged-bg); border: 1px solid var(--border-color); }
 
 .grid-container-wrapper {
@@ -1079,7 +1079,7 @@ const handleTerminateLease = async () => {
 }
 
 .status-vacant { background: var(--status-vacant-bg); color: var(--status-vacant-text); border: 1px dashed var(--border-color); }
-.status-maintenance { background: #7f1d1d; color: #fecaca; }
+.status-maintenance { background: var(--status-danger-bg); color: var(--text-primary); }
 .status-unmanaged { 
   background: var(--status-unmanaged-bg); 
   color: var(--text-muted); 
@@ -1129,7 +1129,7 @@ const handleTerminateLease = async () => {
 }
 
 /* Global .glass used from index.css */
-.drawer-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 1000; }
+.drawer-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--overlay-bg); z-index: 1000; }
 /* Drawer Styles Upgraded */
 .detail-drawer { 
   position: absolute; 
@@ -1569,7 +1569,7 @@ const handleTerminateLease = async () => {
 .payment-modal-overlay {
   position: fixed;
   top: 0; left: 0; width: 100%; height: 100%;
-  background: rgba(0,0,0,0.7);
+  background: var(--overlay-bg);
   backdrop-filter: blur(4px);
   z-index: 2000;
   display: flex;
