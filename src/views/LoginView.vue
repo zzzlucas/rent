@@ -1,27 +1,79 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { login } from '../api/auth'
-import { ShieldCheck, User, Lock, ArrowRight, Loader2 } from 'lucide-vue-next'
+import { login, sendCode, smsLogin } from '../api/auth'
+import { ShieldCheck, User, Lock, ArrowRight, Loader2, Phone, Smartphone } from 'lucide-vue-next'
 import { showToast } from '../store'
 
 const router = useRouter()
 const username = ref('admin')
 const password = ref('123456')
 const isLoading = ref(false)
+const loginType = ref<'password' | 'sms'>('password')
+const phone = ref('')
+const smsCode = ref('')
+const countdown = ref(0)
+const timer = ref<any>(null)
+
+const startCountdown = () => {
+  countdown.value = 60
+  timer.value = setInterval(() => {
+    countdown.value--
+    if (countdown.value <= 0) {
+      clearInterval(timer.value)
+    }
+  }, 1000)
+}
+
+const handleSendCode = async () => {
+  if (!phone.value) {
+    showToast('请输入手机号', 'error')
+    return
+  }
+  if (!/^1[3-9]\d{9}$/.test(phone.value)) {
+    showToast('请输入正确的手机号', 'error')
+    return
+  }
+
+  try {
+    const res = await sendCode(phone.value)
+    showToast('验证码已发送', 'success')
+    startCountdown()
+    // if (res.data && res.data.code) {
+    //   smsCode.value = res.data.code // 方便测试
+    // }
+  } catch (error: any) {
+    showToast(error.message || '发送验证码失败', 'error')
+  }
+}
 
 const handleLogin = async () => {
-  if (!username.value || !password.value) {
-    showToast('请输入用户名和密码', 'error')
-    return
+  if (loginType.value === 'password') {
+    if (!username.value || !password.value) {
+      showToast('请输入用户名和密码', 'error')
+      return
+    }
+  } else {
+    if (!phone.value || !smsCode.value) {
+      showToast('请输入手机号和验证码', 'error')
+      return
+    }
   }
 
   isLoading.value = true
   try {
-    const res = await login({
-      username: username.value,
-      password: password.value
-    })
+    let res: any
+    if (loginType.value === 'password') {
+      res = await login({
+        username: username.value,
+        password: password.value
+      })
+    } else {
+      res = await smsLogin({
+        phone: phone.value,
+        code: smsCode.value
+      })
+    }
     
     if (res.data && res.data.token) {
       localStorage.setItem('token', res.data.token)
@@ -49,32 +101,87 @@ const handleLogin = async () => {
         <p class="subtitle">专业的内控式物业管理系统</p>
       </div>
 
-      <div class="login-form">
-        <div class="input-group">
-          <label>用户名</label>
-          <div class="input-wrapper">
-            <User :size="18" class="icon" />
-            <input 
-              v-model="username" 
-              type="text" 
-              placeholder="请输入管理员账号" 
-              @keyup.enter="handleLogin"
-            />
-          </div>
+      <div class="login-tabs">
+        <div 
+          class="tab-item" 
+          :class="{ active: loginType === 'password' }"
+          @click="loginType = 'password'"
+        >
+          密码登录
         </div>
+        <div 
+          class="tab-item" 
+          :class="{ active: loginType === 'sms' }"
+          @click="loginType = 'sms'"
+        >
+          验证码登录
+        </div>
+      </div>
 
-        <div class="input-group">
-          <label>密码</label>
-          <div class="input-wrapper">
-            <Lock :size="18" class="icon" />
-            <input 
-              v-model="password" 
-              type="password" 
-              placeholder="请输入密码" 
-              @keyup.enter="handleLogin"
-            />
+      <div class="login-form">
+        <template v-if="loginType === 'password'">
+          <div class="input-group">
+            <label>用户名</label>
+            <div class="input-wrapper">
+              <User :size="18" class="icon" />
+              <input 
+                v-model="username" 
+                type="text" 
+                placeholder="请输入管理员账号" 
+                @keyup.enter="handleLogin"
+              />
+            </div>
           </div>
-        </div>
+
+          <div class="input-group">
+            <label>密码</label>
+            <div class="input-wrapper">
+              <Lock :size="18" class="icon" />
+              <input 
+                v-model="password" 
+                type="password" 
+                placeholder="请输入密码" 
+                @keyup.enter="handleLogin"
+              />
+            </div>
+          </div>
+        </template>
+
+        <template v-else>
+          <div class="input-group">
+            <label>手机号</label>
+            <div class="input-wrapper">
+              <Phone :size="18" class="icon" />
+              <input 
+                v-model="phone" 
+                type="tel" 
+                placeholder="请输入手机号" 
+                @keyup.enter="handleLogin"
+              />
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label>验证码</label>
+            <div class="input-wrapper">
+              <Smartphone :size="18" class="icon" />
+              <input 
+                v-model="smsCode" 
+                type="text" 
+                placeholder="请输入6位验证码" 
+                maxlength="6"
+                @keyup.enter="handleLogin"
+              />
+              <button 
+                class="send-code-btn" 
+                :disabled="countdown > 0"
+                @click="handleSendCode"
+              >
+                {{ countdown > 0 ? `${countdown}s` : '获取验证码' }}
+              </button>
+            </div>
+          </div>
+        </template>
 
         <button 
           class="login-btn" 
@@ -87,7 +194,8 @@ const handleLogin = async () => {
         </button>
 
         <div class="login-footer">
-          <p>测试账号: admin / 123456</p>
+          <p v-if="loginType === 'password'">测试账号: admin / 123456</p>
+          <p v-else>欢迎使用短信登录</p>
         </div>
       </div>
     </div>
@@ -154,10 +262,71 @@ const handleLogin = async () => {
   font-weight: 500;
 }
 
+.login-tabs {
+  display: flex;
+  gap: 2rem;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 0.5rem;
+}
+
+.tab-item {
+  color: #64748b;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.5rem 0.25rem;
+  position: relative;
+  transition: all 0.3s;
+}
+
+.tab-item:hover {
+  color: #94a3b8;
+}
+
+.tab-item.active {
+  color: #6366f1;
+}
+
+.tab-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: -0.5rem;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #6366f1;
+  border-radius: 2px;
+}
+
 .login-form {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+
+.send-code-btn {
+  position: absolute;
+  right: 0.75rem;
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+  border: none;
+  border-radius: 8px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.send-code-btn:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.2);
+}
+
+.send-code-btn:disabled {
+  color: #64748b;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .input-group label {
