@@ -257,7 +257,7 @@ const startQueuedRecognition = async () => {
   const dimensionsList = await Promise.all(fileContents.map(item => getImageSize(item)))
   const totalEst = getEstimate(files, dimensionsList)
   startProgressTimer(totalEst)
-  addLog(`鈿?棰勮澶勭悊鑰楁椂: 绾?${totalEst} 绉?(鍩轰簬鍘嗗彶妯″瀷銆佹牸寮忋€佸ぇ灏忋€侀暱瀹藉拰鍚堝悓鏁?`, 'info')
+  addLog(`⚡ 预计处理耗时: 约 ${totalEst} 秒 (基于历史模型、格式、大小、长宽和合同数)`, 'info')
 
   batchResults.value = []
 
@@ -789,6 +789,29 @@ const openHistoryDetail = async (record: RecognitionRecord) => {
   }
 }
 
+const openHistoryReplay = async (record: RecognitionRecord) => {
+  await openHistoryDetail(record)
+  if (!selectedHistoryDetail.value?.detailSnapshot?.review) {
+    showToast('该记录暂无核对回放数据', 'info')
+  }
+}
+
+const historyReplay = computed(() => selectedHistoryDetail.value?.detailSnapshot?.review || null)
+const historyReplayFields = computed(() => {
+  const fields = historyReplay.value?.fields
+  return Array.isArray(fields) ? fields : []
+})
+const historyReplayPreviewUrl = computed(() => {
+  return historyReplay.value?.previewUrl || ''
+})
+
+const isReplayFieldChanged = (item: any) => {
+  const original = String(item?.original || '').trim()
+  const fixed = String(item?.fixed || '').trim()
+  if (!original || !fixed) return false
+  return original !== fixed
+}
+
 const handleModalClose = () => {
   if (step.value === 2) {
     minimize()
@@ -957,7 +980,7 @@ const aiModels = ref<any[]>([])
           <div v-if="historyLoading" class="history-empty">正在加载识别记录...</div>
           <div v-else-if="recognitionHistory.length === 0" class="history-empty">暂无识别记录</div>
           <div v-else class="history-list">
-            <div v-for="h in recognitionHistory" :key="h.id" class="history-item clickable" @click="openHistoryDetail(h)">
+            <div v-for="h in recognitionHistory" :key="h.id" class="history-item clickable" @click="openHistoryReplay(h)">
               <div class="h-left">
                 <span class="h-date">{{ formatRecordTime(h.createdAt) }}</span>
                 <span class="h-model">{{ formatModelName(h.ocrModel || h.model) }}</span>
@@ -966,9 +989,9 @@ const aiModels = ref<any[]>([])
               <div class="h-right">
                 <span class="h-pages">{{ h.contractCount || h.pageCount || 1 }} 页</span>
                 <span class="h-time">{{ formatDuration(h.actualDurationMs || h.estimatedDurationMs) }}</span>
-                <button class="h-view-btn" type="button" @click.stop="openHistoryDetail(h)">
+                <button class="h-view-btn" type="button" @click.stop.prevent="openHistoryReplay(h)">
                   <Eye :size="13" />
-                  查看
+                  核对回放
                 </button>
               </div>
             </div>
@@ -1236,9 +1259,36 @@ const aiModels = ref<any[]>([])
               <div class="detail-item"><span>核对时间</span><strong>{{ formatRecordTime(selectedHistoryDetail.reviewedAt) }}</strong></div>
             </div>
             <div class="detail-block"><span>模型路由原因</span><p>{{ selectedHistoryDetail.reason || '--' }}</p></div>
-            <div v-if="selectedHistoryDetail.detailSnapshot?.review" class="detail-block">
-              <span>核对结果</span>
-              <pre>{{ JSON.stringify(selectedHistoryDetail.detailSnapshot.review, null, 2) }}</pre>
+            <div v-if="historyReplay" class="detail-block replay-block">
+              <span>核对回放</span>
+              <div class="replay-layout">
+                <div class="replay-image-wrap">
+                  <div v-if="historyReplayPreviewUrl" class="replay-image-card" @click="openMagnifier(historyReplayPreviewUrl)">
+                    <img :src="historyReplayPreviewUrl" alt="历史核对原始凭证" />
+                    <div class="preview-tag">原始凭证</div>
+                  </div>
+                  <div v-else class="replay-image-empty">当时未保存原始凭证预览</div>
+                </div>
+                <div class="replay-table-wrap">
+                  <div class="replay-table-head">
+                    <span>关键字段</span>
+                    <span>识别原值</span>
+                    <span>录入修正</span>
+                  </div>
+                  <div v-if="historyReplayFields.length" class="replay-table-body">
+                    <div
+                      v-for="(item, idx) in historyReplayFields"
+                      :key="`${item?.field || 'field'}-${idx}`"
+                      class="replay-row"
+                    >
+                      <span class="replay-cell replay-key">{{ item?.field || '--' }}</span>
+                      <span class="replay-cell replay-original">{{ item?.original || '--' }}</span>
+                      <span class="replay-cell replay-fixed" :class="{ changed: isReplayFieldChanged(item) }">{{ item?.fixed || '--' }}</span>
+                    </div>
+                  </div>
+                  <div v-else class="replay-empty">该记录未保存字段核对明细</div>
+                </div>
+              </div>
             </div>
             <div class="detail-block"><span>识别快照</span><pre>{{ JSON.stringify(selectedHistoryDetail.detailSnapshot || {}, null, 2) }}</pre></div>
           </div>
@@ -2540,6 +2590,107 @@ const aiModels = ref<any[]>([])
   line-height: 1.55;
 }
 
+.replay-block {
+  padding: 12px;
+}
+
+.replay-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 12px;
+}
+
+.replay-image-wrap {
+  min-height: 320px;
+}
+
+.replay-image-card {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  cursor: zoom-in;
+  background: #f8fafc;
+}
+
+.replay-image-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.replay-image-empty,
+.replay-empty {
+  height: 100%;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border-radius: 12px;
+  border: 1px dashed #cbd5e1;
+  color: #64748b;
+  font-size: 0.82rem;
+  background: #f8fafc;
+  padding: 12px;
+}
+
+.replay-table-wrap {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.replay-table-head,
+.replay-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.replay-table-head {
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.replay-table-head span,
+.replay-cell {
+  padding: 10px 12px;
+  border-right: 1px solid #e2e8f0;
+}
+
+.replay-table-head span:last-child,
+.replay-cell:last-child {
+  border-right: none;
+}
+
+.replay-row {
+  border-top: 1px solid #e2e8f0;
+}
+
+.replay-key {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.replay-original {
+  color: #64748b;
+}
+
+.replay-fixed {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.replay-fixed.changed {
+  color: #059669;
+}
+
 .action-buttons {
   display: flex;
   gap: 1rem;
@@ -2596,6 +2747,18 @@ const aiModels = ref<any[]>([])
 @media (max-width: 960px) {
   .history-detail-grid {
     grid-template-columns: 1fr;
+  }
+
+  .replay-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .replay-image-wrap {
+    min-height: auto;
+  }
+
+  .replay-image-card {
+    min-height: 220px;
   }
 }
 </style>

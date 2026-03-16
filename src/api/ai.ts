@@ -117,6 +117,7 @@ export async function submitRecognitionReview(payload: {
   model?: string
   confirmed?: boolean
   note?: string
+  previewUrl?: string
 }) {
   return request('/ai/proxy/recognition-records/review', {
     method: 'POST',
