@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { Upload, Download, FileText, CheckCircle2, HelpCircle, Sparkles, AlertCircle, Check, User, ShieldCheck, CreditCard, Wrench, Camera, Wand2, Terminal, Cpu, LayoutGrid } from 'lucide-vue-next'
+import { ref, onMounted, computed, watch } from 'vue'
+import { Upload, Download, FileText, CheckCircle2, HelpCircle, Sparkles, AlertCircle, Check, User, ShieldCheck, CreditCard, Wrench, Camera, Wand2, Terminal, Cpu, LayoutGrid, X, ArrowRight, Eye, Brain, Search, Plus } from 'lucide-vue-next'
 import BaseModal from '../common/BaseModal.vue'
-import { chatProxy, fetchAiModels } from '../../api/ai'
+import { chatProxy, fetchAiModels, fetchRecognitionRecords, fetchRecognitionRecordDetail, clearRecognitionRecords, submitRecognitionReview, type RecognitionMetaPayload, type RecognitionRecord } from '../../api/ai'
+import { createProperty, createRoom } from '../../api/property'
 import { createContract } from '../../api/contract'
 import { showToast } from '../../store'
 
@@ -23,25 +24,41 @@ const fileBase64 = ref('')
 const previewUrl = ref('')
 
 // AI Models & Logs
-const availableModels = ref<any[]>([])
-const selectedOcrModel = ref('deepseek-ai/DeepSeek-OCR')
+const defaultModels = [
+  { id: 'vl-kimi', name: 'Kimi-K2.5 (全能多模态)', model: 'Pro/moonshotai/Kimi-K2.5', type: 'vision' },
+  { id: 'ocr-1', name: 'DeepSeek OCR (专业识别)', model: 'deepseek-ai/DeepSeek-OCR', type: 'vision' },
+  { id: 'vl-1', name: 'Qwen2.5-VL-72B (最强视觉)', model: 'Qwen/Qwen2.5-VL-72B-Instruct', type: 'vision' },
+  { id: 'llm-1', name: 'DeepSeek V3 (文本)', model: 'deepseek-ai/DeepSeek-V3', type: 'text' },
+  { id: 'llm-2', name: 'DeepSeek R1 (推理)', model: 'deepseek-ai/DeepSeek-R1', type: 'thinking' }
+]
+const availableModels = ref<any[]>([...defaultModels])
+const ocrModels = computed(() => availableModels.value.filter(model => model.type === 'vision'))
+const llmModels = computed(() => availableModels.value.filter(model => model.type === 'text' || model.type === 'thinking'))
+const selectedOcrModel = ref('Pro/moonshotai/Kimi-K2.5')
 const selectedLlmModel = ref('deepseek-ai/DeepSeek-V3')
 const aiLogs = ref<{msg: string, type: 'info'|'success'|'error'}[]>([])
 const ocrResultText = ref('')
 const extractedFields = ref<any[]>([])
 const batchQueue = ref<{name: string, status: 'pending'|'processing'|'done'|'error', progress: number}[]>([])
 const currentBatchIndex = ref(-1)
-const batchResults = ref<{fileName: string, previewUrl: string, fields: any[], status: 'pending'|'saved'}[]>([])
+const batchResults = ref<{fileName: string, previewUrl: string, fields: any[], status: 'pending'|'saved', recognitionMeta: RecognitionMetaPayload}[]>([])
 const activeResultIndex = ref(0)
 
 // Recognition History & Estimation
-const recognitionHistory = ref<any[]>(JSON.parse(localStorage.getItem('contract_scan_history') || '[]'))
+const recognitionHistory = ref<RecognitionRecord[]>([])
 const estimatedSeconds = ref(0)
 const elapsedSeconds = ref(0)
 let progressTimer: any = null
+const historyLoading = ref(false)
+const showHistoryDetail = ref(false)
+const historyDetailLoading = ref(false)
+const selectedHistoryDetail = ref<any>(null)
+const showImageMagnifier = ref(false)
+const magnifierImageUrl = ref('')
+const creatingMissingRoom = ref(false)
+const matchFailureContext = ref<{ propertyName: string, roomNumber: string, rentPrice: number, deposit: number } | null>(null)
+const pendingAiFiles = ref<File[]>([])
 
-// Sync entryMode when prop changes or modal opens
-import { watch } from 'vue'
 watch(() => [props.show, props.initialMode], () => {
   if (props.show && props.initialMode) {
     entryMode.value = props.initialMode
@@ -50,23 +67,126 @@ watch(() => [props.show, props.initialMode], () => {
   }
 }, { immediate: true })
 
-const saveHistory = (data: any) => {
-  recognitionHistory.value.unshift({
-    id: Date.now(),
-    date: new Date().toLocaleString(),
-    ...data
-  })
-  recognitionHistory.value = recognitionHistory.value.slice(0, 10) // Keep last 10
-  localStorage.setItem('contract_scan_history', JSON.stringify(recognitionHistory.value))
+watch(availableModels, () => {
+  if (!ocrModels.value.some(model => model.model === selectedOcrModel.value) && ocrModels.value.length > 0) {
+    selectedOcrModel.value = ocrModels.value[0].model
+  }
+  if (!llmModels.value.some(model => model.model === selectedLlmModel.value) && llmModels.value.length > 0) {
+    selectedLlmModel.value = llmModels.value[0].model
+  }
+}, { immediate: true })
+
+watch(activeResultIndex, () => {
+  matchFailureContext.value = null
+})
+
+const formatModelName = (model?: string | null) => {
+  if (!model) return '--'
+  const parts = model.split('/')
+  return parts[parts.length - 1]
 }
 
-const getEstimate = (ocrModel: string, pageCount: number) => {
-  const modelStats = recognitionHistory.value.filter(h => h.ocrModel === ocrModel)
-  if (modelStats.length > 0) {
-    const avgTimePerPage = modelStats.reduce((acc, curr) => acc + (curr.totalTime / curr.pages), 0) / modelStats.length
-    return Math.max(5, Math.round(avgTimePerPage * pageCount + 3)) // Base 3s for LLM
+const formatRecordTime = (value?: string | null) => {
+  if (!value) return '--'
+  return new Date(value).toLocaleString('zh-CN', { hour12: false })
+}
+
+const formatDuration = (ms?: number | null) => {
+  if (!ms || ms <= 0) return '--'
+  return `${Math.max(1, Math.round(ms / 1000))}s`
+}
+
+const formatFileSize = (size?: number) => {
+  const bytes = Number(size || 0)
+  if (!bytes) return '0 B'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+const formatAccuracy = (value?: number | null) => {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '--'
+  return `${Number(value).toFixed(2)}%`
+}
+
+const resolveReviewAccuracy = (detail: any) => {
+  if (!detail) return null
+  if (detail.reviewAccuracy !== null && detail.reviewAccuracy !== undefined) {
+    return Number(detail.reviewAccuracy)
   }
-  return pageCount * 8 + 5 // Default fallback: 8s per page + 5s LLM
+  const snapshotAccuracy = detail?.detailSnapshot?.review?.accuracy
+  return snapshotAccuracy !== null && snapshotAccuracy !== undefined ? Number(snapshotAccuracy) : null
+}
+
+const getConfidenceLabel = (value?: number | null) => {
+  if (value == null) return '普通'
+  if (value >= 75) return '高置信'
+  if (value >= 45) return '中置信'
+  return '低置信'
+}
+
+
+const loadRecognitionHistory = async () => {
+  historyLoading.value = true
+  try {
+    const res = await fetchRecognitionRecords(10)
+    recognitionHistory.value = Array.isArray(res?.data) ? res.data : []
+  } catch (e) {
+    recognitionHistory.value = []
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+const getRecognitionMeta = (file: File, dimensions: { width: number, height: number }, contractCount: number): RecognitionMetaPayload => ({
+  requestType: 'ocr_recognition',
+  ocrModel: selectedOcrModel.value,
+  analysisModel: selectedLlmModel.value,
+  contractFormat: file.name.split('.').pop()?.toLowerCase() || 'image',
+  contractCount,
+  pageCount: 1,
+  fileSizeBytes: file.size,
+  imageWidth: dimensions.width,
+  imageHeight: dimensions.height
+})
+
+const getEstimateScore = (record: RecognitionRecord, meta: RecognitionMetaPayload) => {
+  const similar = (a?: number | null, b?: number | null, weight = 10) => {
+    if (!a || !b) return 0
+    return Math.max(0, weight * (1 - Math.abs(a - b) / Math.max(a, b)))
+  }
+
+  let score = 0
+  if (record.ocrModel === meta.ocrModel) score += 28
+  if (record.analysisModel === meta.analysisModel) score += 22
+  if (record.contractFormat === meta.contractFormat) score += 10
+  score += similar(record.contractCount, meta.contractCount, 10)
+  score += similar(record.fileSizeBytes, meta.fileSizeBytes, 12)
+  score += similar(record.imageWidth, meta.imageWidth, 8)
+  score += similar(record.imageHeight, meta.imageHeight, 8)
+  return score
+}
+
+const getEstimate = (files: File[], dimensionsList: { width: number, height: number }[]) => {
+  if (!files.length) return 12
+  const totalMs = files.reduce((sum, file, index) => {
+    const meta = getRecognitionMeta(file, dimensionsList[index], files.length)
+    const ranked = recognitionHistory.value
+      .map(record => ({
+        score: getEstimateScore(record, meta),
+        duration: record.actualDurationMs || record.estimatedDurationMs || 0
+      }))
+      .filter(item => item.score >= 10 && item.duration > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 8)
+
+    if (!ranked.length) return sum + 12000
+    const weighted = ranked.reduce((acc, item) => acc + item.duration * item.score, 0)
+    const totalWeight = ranked.reduce((acc, item) => acc + item.score, 0)
+    return sum + Math.round(weighted / totalWeight)
+  }, 0)
+
+  return Math.max(8, Math.round(totalMs / 1000))
 }
 
 const startProgressTimer = (totalEstimate: number) => {
@@ -92,22 +212,95 @@ const currentSmoothProgress = computed(() => {
 const fetchModels = async () => {
   try {
     const res = await fetchAiModels()
-    if (res.code === 0) {
-      availableModels.value = res.data
+    const models = Array.isArray(res) ? res : (Array.isArray((res as any)?.data) ? (res as any).data : [])
+    if (models.length > 0) {
+      availableModels.value = models
+    } else {
+      throw new Error('empty model list')
     }
   } catch (e) {
     console.error('Failed to fetch models', e)
-    // Fallback defaults
-    availableModels.value = [
-      { id: 'ocr-1', name: 'DeepSeek OCR', model: 'deepseek-ai/DeepSeek-OCR', type: 'vision' },
-      { id: 'llm-1', name: 'DeepSeek V3', model: 'deepseek-ai/DeepSeek-V3', type: 'text' }
-    ]
+    availableModels.value = [...defaultModels]
   }
 }
 
-onMounted(fetchModels)
 
-const handleFileUpload = async (e: Event) => {
+const readFileAsDataUrl = (file: File) => new Promise<string>((resolve) => {
+  const reader = new FileReader()
+  reader.onload = (ev) => resolve(ev.target?.result as string)
+  reader.readAsDataURL(file)
+})
+
+const getImageSize = (dataUrl: string) => new Promise<{ width: number, height: number }>((resolve) => {
+  const img = new Image()
+  img.onload = () => resolve({ width: img.naturalWidth || img.width, height: img.naturalHeight || img.height })
+  img.onerror = () => resolve({ width: 0, height: 0 })
+  img.src = dataUrl
+})
+
+onMounted(async () => {
+  await Promise.all([fetchModels(), loadRecognitionHistory()])
+})
+
+const startQueuedRecognition = async () => {
+  const files = [...pendingAiFiles.value]
+  if (!files.length) {
+    showToast('请先上传待识别图片', 'error')
+    return
+  }
+
+  batchQueue.value = files.map(f => ({ name: f.name, status: 'pending', progress: 0 }))
+  step.value = 2
+  aiLogs.value = []
+
+  const fileContents = await Promise.all(files.map(file => readFileAsDataUrl(file)))
+  const dimensionsList = await Promise.all(fileContents.map(item => getImageSize(item)))
+  const totalEst = getEstimate(files, dimensionsList)
+  startProgressTimer(totalEst)
+  addLog(`鈿?棰勮澶勭悊鑰楁椂: 绾?${totalEst} 绉?(鍩轰簬鍘嗗彶妯″瀷銆佹牸寮忋€佸ぇ灏忋€侀暱瀹藉拰鍚堝悓鏁?`, 'info')
+
+  batchResults.value = []
+
+  for (let i = 0; i < files.length; i++) {
+    currentBatchIndex.value = i
+    const file = files[i]
+    batchQueue.value[i].status = 'processing'
+    const fileContent = fileContents[i]
+    const recognitionMeta = getRecognitionMeta(file, dimensionsList[i], files.length)
+
+    fileBase64.value = fileContent.split(',')[1]
+
+    const ocrText = await processSingleFile(file.name, i, recognitionMeta)
+    const fields = await extractFieldsFromText(ocrText, file.name, recognitionMeta)
+
+    batchResults.value.push({
+      fileName: file.name,
+      previewUrl: fileContent,
+      fields: fields,
+      status: 'pending',
+      recognitionMeta
+    })
+
+    batchQueue.value[i].status = 'done'
+    batchQueue.value[i].progress = 100
+  }
+
+  activeResultIndex.value = 0
+  pendingAiFiles.value = []
+  addLog('🎊 批量扫描已完成，进入核对环节。', 'success')
+  setTimeout(() => {
+    step.value = 3
+  }, 800)
+
+  clearInterval(progressTimer)
+  await loadRecognitionHistory()
+}
+
+const removePendingAiFile = (index: number) => {
+  pendingAiFiles.value.splice(index, 1)
+}
+
+const handleFileUploadLegacy = async (e: Event) => {
   const target = e.target as HTMLInputElement
   if (target.files && target.files.length > 0) {
     const files = Array.from(target.files)
@@ -118,9 +311,11 @@ const handleFileUpload = async (e: Event) => {
       step.value = 2
       aiLogs.value = []
       
-      const totalEst = getEstimate(selectedOcrModel.value, files.length)
+      const fileContents = await Promise.all(files.map(file => readFileAsDataUrl(file)))
+      const dimensionsList = await Promise.all(fileContents.map(item => getImageSize(item)))
+      const totalEst = getEstimate(files, dimensionsList)
       startProgressTimer(totalEst)
-      addLog(`⚡ 预计处理耗时: 约 ${totalEst} 秒 (基于历史模型表现)`, 'info')
+      addLog(`⚡ 预计处理耗时: 约 ${totalEst} 秒 (基于历史模型、格式、大小、长宽和合同数)`, 'info')
       
       batchResults.value = []
       
@@ -128,23 +323,20 @@ const handleFileUpload = async (e: Event) => {
         currentBatchIndex.value = i
         const file = files[i]
         batchQueue.value[i].status = 'processing'
-        
-        const reader = new FileReader()
-        const fileContent = await new Promise<string>((resolve) => {
-          reader.onload = (ev) => resolve(ev.target?.result as string)
-          reader.readAsDataURL(file)
-        })
+        const fileContent = fileContents[i]
+        const recognitionMeta = getRecognitionMeta(file, dimensionsList[i], files.length)
         
         fileBase64.value = fileContent.split(',')[1]
         
-        const ocrText = await processSingleFile(file.name, i)
-        const fields = await extractFieldsFromText(ocrText, file.name)
+        const ocrText = await processSingleFile(file.name, i, recognitionMeta)
+        const fields = await extractFieldsFromText(ocrText, file.name, recognitionMeta)
         
         batchResults.value.push({
           fileName: file.name,
           previewUrl: fileContent,
           fields: fields,
-          status: 'pending'
+          status: 'pending',
+          recognitionMeta
         })
         
         batchQueue.value[i].status = 'done'
@@ -157,14 +349,8 @@ const handleFileUpload = async (e: Event) => {
         step.value = 3
       }, 800)
       
-      const duration = (Date.now() - startTime) / 1000
-      saveHistory({
-        ocrModel: selectedOcrModel.value,
-        llmModel: selectedLlmModel.value,
-        pages: files.length,
-        totalTime: duration
-      })
       clearInterval(progressTimer)
+      await loadRecognitionHistory()
       
     } else {
       const file = files[0]
@@ -178,13 +364,35 @@ const handleFileUpload = async (e: Event) => {
   }
 }
 
-const processSingleFile = async (name: string, index: number) => {
+const handleFileUpload = async (e: Event) => {
+  const target = e.target as HTMLInputElement
+  if (!target.files || target.files.length === 0) return
+  const files = Array.from(target.files)
+
+  if (entryMode.value === 'ai_scan') {
+    pendingAiFiles.value = [...pendingAiFiles.value, ...files]
+    showToast(`已加入待识别列表：${files.length} 张`)
+    target.value = ''
+    return
+  }
+
+  const file = files[0]
+  fileName.value = file.name
+  if (aiEnabled.value) {
+    startAIPreprocessing()
+  } else {
+    startFinalImport()
+  }
+}
+
+const processSingleFile = async (name: string, index: number, recognitionMeta: RecognitionMetaPayload) => {
   addLog(`📄 正在识别页面 [${index + 1}/${batchQueue.value.length}]: ${name}`, 'info')
   batchQueue.value[index].progress = 20
   
   try {
     const ocrResp = await chatProxy({
       model: selectedOcrModel.value,
+      recognitionMeta,
       messages: [
         { role: 'user', content: [
           { type: 'text', text: '请准确识别并提取这张合同图片中的所有文字内容。' },
@@ -201,11 +409,12 @@ const processSingleFile = async (name: string, index: number) => {
   }
 }
 
-const extractFieldsFromText = async (text: string, fileName: string) => {
+const extractFieldsFromText = async (text: string, fileName: string, recognitionMeta: RecognitionMetaPayload) => {
   addLog(`🧠 正在深度分析 [${fileName}] 的合同语义...`, 'info')
   try {
     const extractResp = await chatProxy({
       model: selectedLlmModel.value,
+      recognitionMeta,
       messages: [
         { role: 'system', content: '你是一个专业的租赁合同分析助手。请根据提供的 OCR 文字，提取关键字段并输出为 JSON 数组格式。每个对象包含 field, original(文字原值), fixed(建议修正值), reason(原因)。要求：1. 日期格式统一修正为 YYYY-MM-DD；2. 租金和押金提取为纯数字；3. 若原件模糊或未提供，fixed 留空。' },
         { role: 'user', content: `请分析以下合同文本并提取：合同编号、甲方、乙方、手机号、房屋地址、月租金金额、租期开始日、租期结束日、押金。文字内容：\n${text}` }
@@ -284,7 +493,7 @@ const startAIPreprocessing = () => {
 
 
 
-const confirmAIResults = async () => {
+const confirmAIResultsLegacy = async () => {
   const current = batchResults.value[activeResultIndex.value]
   if (!current || current.status === 'saved') return
   
@@ -321,6 +530,22 @@ const confirmAIResults = async () => {
   try {
     const res = await createContract(payload)
     if (res.code === 0) {
+      const reviewFields = (current.fields || []).map((item: any) => ({
+        field: String(item?.field || ''),
+        original: String(item?.original || ''),
+        fixed: String(item?.fixed ?? item?.original ?? '')
+      }))
+      try {
+        await submitRecognitionReview({
+          fields: reviewFields,
+          recognitionMeta: current.recognitionMeta,
+          ocrModel: current.recognitionMeta?.ocrModel,
+          analysisModel: current.recognitionMeta?.analysisModel,
+          confirmed: true
+        })
+      } catch (reviewErr) {
+        console.warn('submitRecognitionReview failed', reviewErr)
+      }
       current.status = 'saved'
       showToast(`[${current.fileName}] 录入成功`)
       
@@ -334,6 +559,161 @@ const confirmAIResults = async () => {
     }
   } catch (err: any) {
     showToast(`[${current.fileName}] ${err.message || '录入失败'}`, 'error')
+  }
+}
+
+const buildContractPayload = (fields: any[]) => {
+  const findValue = (fieldName: string) => {
+    const found = fields.find(f => String(f?.field || '').includes(fieldName))
+    return found ? (found.fixed || found.original || '') : ''
+  }
+
+  const payload: any = {
+    customerName: findValue('乙方') || findValue('承租人'),
+    customerPhone: findValue('手机'),
+    roomNumber: findValue('房号') || findValue('房间') || findValue('号码'),
+    propertyName: findValue('物业') || findValue('地址') || findValue('甲方'),
+    startDate: findValue('开始') || findValue('起始'),
+    endDate: findValue('结束') || findValue('到期'),
+    actualRentPrice: Math.round((parseFloat(findValue('租金')) || 0) * 100),
+    deposit: Math.round((parseFloat(findValue('押金')) || 0) * 100)
+  }
+
+  if (payload.propertyName && payload.propertyName.includes('甲方')) {
+    payload.propertyName = payload.propertyName.replace(/.*甲方[:：\s]*/, '')
+  }
+  if (payload.roomNumber && payload.roomNumber.includes('号楼')) {
+    const parts = String(payload.roomNumber).split(/[\s,，]+/)
+    if (parts.length > 1) {
+      if (!payload.propertyName) payload.propertyName = parts[0]
+      payload.roomNumber = parts[parts.length - 1]
+    }
+  }
+  return payload
+}
+
+const guessFloorFromRoom = (roomNumber: string) => {
+  const digits = String(roomNumber || '').match(/\d+/g)?.join('') || ''
+  if (!digits) return 1
+  if (digits.length >= 3) return Math.max(1, Number(digits.slice(0, digits.length - 2)))
+  if (digits.length === 2) return 1
+  return Math.max(1, Number(digits))
+}
+
+const finalizeSavedResult = async (current: any) => {
+  const reviewFields = (current.fields || []).map((item: any) => ({
+    field: String(item?.field || ''),
+    original: String(item?.original || ''),
+    fixed: String(item?.fixed ?? item?.original ?? '')
+  }))
+  try {
+    await submitRecognitionReview({
+      fields: reviewFields,
+      recognitionMeta: current.recognitionMeta,
+      ocrModel: current.recognitionMeta?.ocrModel,
+      analysisModel: current.recognitionMeta?.analysisModel,
+      confirmed: true
+    })
+  } catch (reviewErr) {
+    console.warn('submitRecognitionReview failed', reviewErr)
+  }
+
+  current.status = 'saved'
+  matchFailureContext.value = null
+  showToast(`[${current.fileName}] 录入成功`)
+  if (activeResultIndex.value < batchResults.value.length - 1) {
+    activeResultIndex.value++
+  } else if (batchResults.value.every(r => r.status === 'saved')) {
+    step.value = 5
+    emit('success')
+  }
+}
+
+const confirmAIResults = async () => {
+  const current = batchResults.value[activeResultIndex.value]
+  if (!current || current.status === 'saved') return
+  const payload = buildContractPayload(current.fields || [])
+
+  try {
+    const res = await createContract(payload)
+    if (res.code === 0) {
+      await finalizeSavedResult(current)
+    }
+  } catch (err: any) {
+    const msg = String(err?.message || '录入失败')
+    const isRoomMatchFailed = msg.includes('无法匹配到对应房源')
+      || msg.includes('房源确认失败')
+      || msg.includes('鏃犳硶鍖归厤鍒板搴旀埧婧')
+    if (isRoomMatchFailed) {
+      matchFailureContext.value = {
+        propertyName: String(payload.propertyName || '').trim(),
+        roomNumber: String(payload.roomNumber || '').trim(),
+        rentPrice: Number(payload.actualRentPrice || 0),
+        deposit: Number(payload.deposit || 0)
+      }
+      showToast(`[${current.fileName}] 房源未匹配，可点击“创建房源并重试”`, 'error')
+      return
+    }
+    if (msg.includes('无法匹配到对应房源')) {
+      matchFailureContext.value = {
+        propertyName: String(payload.propertyName || '').trim(),
+        roomNumber: String(payload.roomNumber || '').trim(),
+        rentPrice: Number(payload.actualRentPrice || 0),
+        deposit: Number(payload.deposit || 0)
+      }
+      showToast(`[${current.fileName}] 房源未匹配，可点击“创建并重试”`, 'error')
+      return
+    }
+    showToast(`[${current.fileName}] ${msg}`, 'error')
+  }
+}
+
+const createMissingRoomAndRetry = async () => {
+  const current = batchResults.value[activeResultIndex.value]
+  const ctx = matchFailureContext.value
+  if (!current || !ctx || creatingMissingRoom.value) return
+
+  creatingMissingRoom.value = true
+  try {
+    const propertyName = ctx.propertyName || 'AI识别新增房源'
+    const roomNumber = ctx.roomNumber || `A${Date.now().toString().slice(-4)}`
+    const floor = guessFloorFromRoom(roomNumber)
+
+    const propertyRes = await createProperty({
+      name: propertyName,
+      address: propertyName,
+      totalFloors: Math.max(1, floor),
+      type: 1,
+      remark: '由AI识别流程创建，请人工补全地址信息'
+    })
+    const propertyId = propertyRes?.data?.id
+    if (!propertyId) throw new Error('创建物业失败')
+
+    const roomRes = await createRoom({
+      propertyId,
+      roomNumber,
+      floor,
+      status: 0,
+      rentPrice: ctx.rentPrice || 0,
+      standardDeposit: ctx.deposit || 0,
+      tags: 'AI识别',
+      towards: '',
+      roomType: ''
+    })
+    const roomId = roomRes?.data?.id
+    if (!roomId) throw new Error('创建房间失败')
+
+    const payload = buildContractPayload(current.fields || [])
+    payload.roomId = roomId
+    const res = await createContract(payload)
+    if (res.code === 0) {
+      await finalizeSavedResult(current)
+      showToast('已创建对应房源并完成合同录入', 'success')
+    }
+  } catch (err: any) {
+    showToast(err?.message || '创建房源失败，请手工创建后重试', 'error')
+  } finally {
+    creatingMissingRoom.value = false
   }
 }
 
@@ -360,6 +740,7 @@ const reset = () => {
   fileName.value = ''
   fileBase64.value = ''
   previewUrl.value = ''
+  pendingAiFiles.value = []
   aiLogs.value = []
   emit('close')
 }
@@ -383,9 +764,29 @@ const restore = () => {
   isMinimized.value = false
 }
 
-const clearHistory = () => {
-  recognitionHistory.value = []
-  window.localStorage.removeItem('contract_scan_history')
+const clearHistory = async () => {
+  try {
+    await clearRecognitionRecords()
+    recognitionHistory.value = []
+    showToast('识别记录已清理')
+  } catch (err: any) {
+    showToast(err.message || '清理失败', 'error')
+  }
+}
+
+const openHistoryDetail = async (record: RecognitionRecord) => {
+  showHistoryDetail.value = true
+  historyDetailLoading.value = true
+  selectedHistoryDetail.value = null
+  try {
+    const res = await fetchRecognitionRecordDetail(record.id)
+    selectedHistoryDetail.value = res.data
+  } catch (err: any) {
+    showToast(err.message || '详情加载失败', 'error')
+    showHistoryDetail.value = false
+  } finally {
+    historyDetailLoading.value = false
+  }
 }
 
 const handleModalClose = () => {
@@ -398,9 +799,6 @@ const handleModalClose = () => {
 
 const isProcessingBatch = computed(() => batchResults.value.some(r => r.status === 'processing'))
 
-const showImageMagnifier = ref(false)
-const magnifierImageUrl = ref('')
-
 const openMagnifier = (url: string) => {
   magnifierImageUrl.value = url
   showImageMagnifier.value = true
@@ -408,23 +806,6 @@ const openMagnifier = (url: string) => {
 
 // AI Model Handling
 const aiModels = ref<any[]>([])
-const ocrModels = computed(() => availableModels.value.filter(m => m.type === 'vision'))
-const llmModels = computed(() => availableModels.value.filter(m => m.type === 'text' || m.type === 'thinking'))
-
-onMounted(async () => {
-  const models = await fetchAiModels()
-  if (models && models.length > 0) {
-    availableModels.value = models
-  } else {
-    // Fallback if API fails
-    availableModels.value = [
-      { id: 'ocr-1', name: 'DeepSeek OCR (专业识别)', model: 'deepseek-ai/DeepSeek-OCR', type: 'vision' },
-      { id: 'vl-1', name: 'Qwen2.5-VL-72B (最强视觉)', model: 'Qwen/Qwen2.5-VL-72B-Instruct', type: 'vision' },
-      { id: 'vl-kimi', name: 'Kimi-K2.5 (全能多模态)', model: 'Pro/moonshotai/Kimi-K2.5', type: 'vision' },
-      { id: '1', name: 'DeepSeek V3 (文本)', model: 'deepseek-ai/DeepSeek-V3', type: 'text' },
-    ]
-  }
-})
 
 </script>
 
@@ -483,6 +864,24 @@ onMounted(async () => {
             <label for="fileUploadInput" class="upload-link">
               <Upload :size="16" /> 上传已有图片 (支持批量)
             </label>
+          </div>
+          <div v-if="pendingAiFiles.length > 0" class="pending-upload-panel">
+            <div class="pending-upload-header">
+              <span>待识别列表（{{ pendingAiFiles.length }}）</span>
+              <button class="pending-clear-btn" @click="pendingAiFiles = []">清空</button>
+            </div>
+            <div class="pending-upload-list">
+              <div v-for="(file, idx) in pendingAiFiles" :key="`${file.name}-${idx}`" class="pending-upload-item">
+                <div class="pending-upload-name">{{ file.name }}</div>
+                <div class="pending-upload-size">{{ formatFileSize(file.size) }}</div>
+                <button class="pending-remove-btn" @click="removePendingAiFile(idx)">
+                  <X :size="12" />
+                </button>
+              </div>
+            </div>
+            <button class="pending-confirm-btn" @click="startQueuedRecognition">
+              <Sparkles :size="14" /> 确认开始识别
+            </button>
           </div>
         </div>
 
@@ -550,20 +949,27 @@ onMounted(async () => {
         </div>
 
         <!-- Scan History Panel -->
-        <div v-if="entryMode === 'ai_scan' && recognitionHistory.length > 0 && !previewUrl" class="history-panel animate-in">
+        <div v-if="entryMode === 'ai_scan' && !previewUrl" class="history-panel animate-in">
           <div class="history-header">
             <span class="h-title"><Terminal :size="14" /> 最近识别记录 (基于历史数据预测进度)</span>
             <span class="h-clear" @click="clearHistory">清理</span>
           </div>
-          <div class="history-list">
-            <div v-for="h in recognitionHistory" :key="h.id" class="history-item">
+          <div v-if="historyLoading" class="history-empty">正在加载识别记录...</div>
+          <div v-else-if="recognitionHistory.length === 0" class="history-empty">暂无识别记录</div>
+          <div v-else class="history-list">
+            <div v-for="h in recognitionHistory" :key="h.id" class="history-item clickable" @click="openHistoryDetail(h)">
               <div class="h-left">
-                <span class="h-date">{{ h.date.split(',')[0] }}</span>
-                <span class="h-model">{{ h.ocrModel.split('/')[1] }}</span>
+                <span class="h-date">{{ formatRecordTime(h.createdAt) }}</span>
+                <span class="h-model">{{ formatModelName(h.ocrModel || h.model) }}</span>
+                <span class="h-model h-model-soft">{{ getConfidenceLabel(h.estimatedConfidence) }}</span>
               </div>
               <div class="h-right">
-                <span class="h-pages">{{ h.pages }} 页</span>
-                <span class="h-time">{{ Math.round(h.totalTime) }}s</span>
+                <span class="h-pages">{{ h.contractCount || h.pageCount || 1 }} 页</span>
+                <span class="h-time">{{ formatDuration(h.actualDurationMs || h.estimatedDurationMs) }}</span>
+                <button class="h-view-btn" type="button" @click.stop="openHistoryDetail(h)">
+                  <Eye :size="13" />
+                  查看
+                </button>
               </div>
             </div>
           </div>
@@ -756,6 +1162,15 @@ onMounted(async () => {
           <span>建议优先核对表格中 <span class="highlight">标红或标绿</span> 的异常/修正项</span>
         </div>
         <div class="action-buttons">
+          <button
+            v-if="matchFailureContext"
+            class="btn-outline-premium"
+            :disabled="creatingMissingRoom"
+            @click="createMissingRoomAndRetry"
+          >
+            <Plus :size="16" />
+            {{ creatingMissingRoom ? '创建中...' : '创建房源并重试' }}
+          </button>
           <button class="btn-outline-premium" @click="step = 1">重新上传</button>
           <button 
             class="btn-primary-premium" 
@@ -786,6 +1201,47 @@ onMounted(async () => {
           <button class="mag-close-btn" @click="showImageMagnifier = false">
             <X :size="24" />
           </button>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+
+  <Teleport to="body">
+    <Transition name="fade">
+      <div v-if="showHistoryDetail" class="history-detail-overlay" @click="showHistoryDetail = false">
+        <div class="history-detail-card" @click.stop>
+          <div class="history-detail-header">
+            <div>
+              <div class="history-detail-title">识别详情</div>
+              <div class="history-detail-subtitle">查看当时的模型、预测和识别快照</div>
+            </div>
+            <button class="history-detail-close" @click="showHistoryDetail = false">
+              <X :size="18" />
+            </button>
+          </div>
+          <div v-if="historyDetailLoading" class="history-empty">正在加载详情...</div>
+          <div v-else-if="selectedHistoryDetail" class="history-detail-body">
+            <div class="history-detail-grid">
+              <div class="detail-item"><span>识别时间</span><strong>{{ formatRecordTime(selectedHistoryDetail.createdAt) }}</strong></div>
+              <div class="detail-item"><span>OCR 模型</span><strong>{{ formatModelName(selectedHistoryDetail.ocrModel || selectedHistoryDetail.model) }}</strong></div>
+              <div class="detail-item"><span>分析模型</span><strong>{{ formatModelName(selectedHistoryDetail.analysisModel) }}</strong></div>
+              <div class="detail-item"><span>合同格式</span><strong>{{ selectedHistoryDetail.contractFormat || '--' }}</strong></div>
+              <div class="detail-item"><span>合同数 / 页数</span><strong>{{ selectedHistoryDetail.contractCount || '--' }} / {{ selectedHistoryDetail.pageCount || '--' }}</strong></div>
+              <div class="detail-item"><span>宽高</span><strong>{{ selectedHistoryDetail.imageWidth || '--' }} × {{ selectedHistoryDetail.imageHeight || '--' }}</strong></div>
+              <div class="detail-item"><span>预估耗时</span><strong>{{ formatDuration(selectedHistoryDetail.estimatedDurationMs) }}</strong></div>
+              <div class="detail-item"><span>实际耗时</span><strong>{{ formatDuration(selectedHistoryDetail.actualDurationMs) }}</strong></div>
+              <div class="detail-item"><span>样本数 / 置信度</span><strong>{{ selectedHistoryDetail.estimatedSampleSize || 0 }} / {{ selectedHistoryDetail.estimatedConfidence || '--' }}</strong></div>
+              <div class="detail-item"><span>核对状态</span><strong>{{ selectedHistoryDetail.reviewed ? '已核对' : '未核对' }}</strong></div>
+              <div class="detail-item"><span>核对准确度</span><strong>{{ formatAccuracy(resolveReviewAccuracy(selectedHistoryDetail)) }}</strong></div>
+              <div class="detail-item"><span>核对时间</span><strong>{{ formatRecordTime(selectedHistoryDetail.reviewedAt) }}</strong></div>
+            </div>
+            <div class="detail-block"><span>模型路由原因</span><p>{{ selectedHistoryDetail.reason || '--' }}</p></div>
+            <div v-if="selectedHistoryDetail.detailSnapshot?.review" class="detail-block">
+              <span>核对结果</span>
+              <pre>{{ JSON.stringify(selectedHistoryDetail.detailSnapshot.review, null, 2) }}</pre>
+            </div>
+            <div class="detail-block"><span>识别快照</span><pre>{{ JSON.stringify(selectedHistoryDetail.detailSnapshot || {}, null, 2) }}</pre></div>
+          </div>
         </div>
       </div>
     </Transition>
@@ -1046,6 +1502,93 @@ onMounted(async () => {
   color: #818cf8;
 }
 
+.pending-upload-panel {
+  width: min(560px, 92%);
+  margin: 12px auto 0;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+}
+
+.pending-upload-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.pending-clear-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.pending-upload-list {
+  max-height: 160px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pending-upload-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--bg-input);
+}
+
+.pending-upload-name {
+  font-size: 0.78rem;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pending-upload-size {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.pending-remove-btn {
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.pending-confirm-btn {
+  margin-top: 10px;
+  width: 100%;
+  height: 38px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: #fff;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
 .import-options-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1127,7 +1670,7 @@ onMounted(async () => {
 
 /* Result Layout */
 .result-layout { display: grid; grid-template-columns: 240px 1fr; gap: 20px; margin-bottom: 20px; }
-.image-preview-side { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); max-height: 380px; }
+.image-preview-side { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); max-height: 380px; cursor: zoom-in; }
 .image-preview-side img { width: 100%; height: 100%; object-fit: cover; }
 .preview-tag { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.6); color: white; font-size: 0.65rem; padding: 2px 8px; border-radius: 20px; backdrop-filter: blur(4px); }
 
@@ -1414,12 +1957,33 @@ onMounted(async () => {
   background: var(--bg-input); 
   border-radius: 8px;
 }
+.history-item.clickable { cursor: pointer; transition: all 0.2s; }
+.history-item.clickable:hover { transform: translateY(-1px); border: 1px solid rgba(99, 102, 241, 0.18); }
+.history-empty { padding: 16px 12px; border-radius: 10px; background: var(--bg-input); color: var(--text-muted); text-align: center; font-size: 0.8rem; }
 
 .h-left, .h-right { display: flex; align-items: center; gap: 10px; }
 .h-date { font-size: 0.7rem; color: var(--text-muted); }
 .h-model { font-size: 0.7rem; background: rgba(168, 85, 247, 0.1); color: #a855f7; padding: 1px 6px; border-radius: 4px; font-weight: 700; }
+.h-model-soft { background: rgba(59, 130, 246, 0.12); color: #2563eb; }
 .h-pages { font-size: 0.75rem; color: var(--text-primary); font-weight: 600; }
 .h-time { font-size: 0.75rem; color: #10b981; font-weight: 800; }
+.h-view-btn {
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  background: rgba(99, 102, 241, 0.08);
+  color: #4f46e5;
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+.h-view-btn:hover {
+  background: rgba(99, 102, 241, 0.16);
+}
 
 .hidden { display: none; }
 
@@ -1774,6 +2338,12 @@ onMounted(async () => {
   justify-content: space-between;
 }
 
+.modal-footer-centered {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
 .step-footer-simple {
   width: 100%;
 }
@@ -1867,6 +2437,109 @@ onMounted(async () => {
   opacity: 0;
 }
 
+.history-detail-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(8px);
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.history-detail-card {
+  width: min(920px, 100%);
+  max-height: 86vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.24);
+}
+
+.history-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 22px 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.history-detail-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.history-detail-subtitle {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.history-detail-close {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #334155;
+  cursor: pointer;
+}
+
+.history-detail-body {
+  padding: 18px 22px 22px;
+}
+
+.history-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.detail-item,
+.detail-block {
+  padding: 14px;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.detail-item span,
+.detail-block span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.76rem;
+  color: #64748b;
+}
+
+.detail-item strong {
+  color: #0f172a;
+  font-size: 0.9rem;
+}
+
+.detail-block + .detail-block {
+  margin-top: 12px;
+}
+
+.detail-block p,
+.detail-block pre {
+  margin: 0;
+  color: #0f172a;
+}
+
+.detail-block pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
 .action-buttons {
   display: flex;
   gap: 1rem;
@@ -1918,6 +2591,12 @@ onMounted(async () => {
   box-shadow: none;
   cursor: not-allowed;
   opacity: 0.8;
+}
+
+@media (max-width: 960px) {
+  .history-detail-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
 
