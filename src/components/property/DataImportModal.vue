@@ -238,6 +238,81 @@ const getImageSize = (dataUrl: string) => new Promise<{ width: number, height: n
   img.src = dataUrl
 })
 
+const OCR_MAX_CONCURRENCY = 2
+const COMPRESS_TRIGGER_BYTES = 2 * 1024 * 1024
+const COMPRESS_MAX_EDGE = 2200
+const COMPRESS_QUALITY = 0.9
+
+const estimateBase64Bytes = (dataUrl: string) => {
+  const base64 = (dataUrl.split(',')[1] || '').replace(/=+$/, '')
+  return Math.floor((base64.length * 3) / 4)
+}
+
+const compressImageDataUrl = async (dataUrl: string) => {
+  const originalSize = estimateBase64Bytes(dataUrl)
+  const originalDimensions = await getImageSize(dataUrl)
+  const shouldCompress = originalSize > COMPRESS_TRIGGER_BYTES
+    || Math.max(originalDimensions.width, originalDimensions.height) > COMPRESS_MAX_EDGE
+
+  if (!shouldCompress) {
+    return {
+      dataUrl,
+      dimensions: originalDimensions,
+      compressed: false,
+      outputSize: originalSize
+    }
+  }
+
+  return new Promise<{
+    dataUrl: string
+    dimensions: { width: number, height: number }
+    compressed: boolean
+    outputSize: number
+  }>((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const maxEdge = Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height)
+      const scale = maxEdge > COMPRESS_MAX_EDGE ? COMPRESS_MAX_EDGE / maxEdge : 1
+      const targetWidth = Math.max(1, Math.round((img.naturalWidth || img.width) * scale))
+      const targetHeight = Math.max(1, Math.round((img.naturalHeight || img.height) * scale))
+
+      const canvas = document.createElement('canvas')
+      canvas.width = targetWidth
+      canvas.height = targetHeight
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        resolve({
+          dataUrl,
+          dimensions: originalDimensions,
+          compressed: false,
+          outputSize: originalSize
+        })
+        return
+      }
+
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, targetWidth, targetHeight)
+      ctx.drawImage(img, 0, 0, targetWidth, targetHeight)
+      const compressedDataUrl = canvas.toDataURL('image/jpeg', COMPRESS_QUALITY)
+      resolve({
+        dataUrl: compressedDataUrl,
+        dimensions: { width: targetWidth, height: targetHeight },
+        compressed: true,
+        outputSize: estimateBase64Bytes(compressedDataUrl)
+      })
+    }
+    img.onerror = () => {
+      resolve({
+        dataUrl,
+        dimensions: originalDimensions,
+        compressed: false,
+        outputSize: originalSize
+      })
+    }
+    img.src = dataUrl
+  })
+}
+
 onMounted(async () => {
   await Promise.all([fetchModels(), loadRecognitionHistory()])
 })
@@ -254,40 +329,62 @@ const startQueuedRecognition = async () => {
   aiLogs.value = []
 
   const fileContents = await Promise.all(files.map(file => readFileAsDataUrl(file)))
-  const dimensionsList = await Promise.all(fileContents.map(item => getImageSize(item)))
+  const prepared = await Promise.all(fileContents.map(item => compressImageDataUrl(item)))
+  const dimensionsList = prepared.map(item => item.dimensions)
+  const compressedCount = prepared.filter(item => item.compressed).length
+  if (compressedCount > 0) {
+    const totalBefore = fileContents.reduce((sum, item) => sum + estimateBase64Bytes(item), 0)
+    const totalAfter = prepared.reduce((sum, item) => sum + item.outputSize, 0)
+    const savedMb = Math.max(0, (totalBefore - totalAfter) / 1024 / 1024).toFixed(2)
+    addLog(`🗜️ 已优化 ${compressedCount}/${files.length} 张图片，节省约 ${savedMb} MB 上传体积`, 'info')
+  }
+
   const totalEst = getEstimate(files, dimensionsList)
   startProgressTimer(totalEst)
   addLog(`⚡ 预计处理耗时: 约 ${totalEst} 秒 (基于历史模型、格式、大小、长宽和合同数)`, 'info')
 
-  batchResults.value = []
+  const results: {fileName: string, previewUrl: string, fields: any[], status: 'pending'|'saved', recognitionMeta: RecognitionMetaPayload}[] = new Array(files.length)
+  let cursor = 0
+  const workerCount = Math.min(OCR_MAX_CONCURRENCY, files.length)
 
-  for (let i = 0; i < files.length; i++) {
-    currentBatchIndex.value = i
-    const file = files[i]
-    batchQueue.value[i].status = 'processing'
-    const fileContent = fileContents[i]
-    const recognitionMeta = getRecognitionMeta(file, dimensionsList[i], files.length)
+  const runWorker = async () => {
+    while (true) {
+      const i = cursor++
+      if (i >= files.length) break
+      currentBatchIndex.value = i
+      const file = files[i]
+      const fileContent = prepared[i].dataUrl
+      const base64 = fileContent.split(',')[1]
+      const recognitionMeta = getRecognitionMeta(file, dimensionsList[i], files.length)
+      batchQueue.value[i].status = 'processing'
+      batchQueue.value[i].progress = 10
 
-    fileBase64.value = fileContent.split(',')[1]
+      const ocrText = await processSingleFile(file.name, i, recognitionMeta, base64)
+      if (!ocrText) {
+        batchQueue.value[i].status = 'error'
+        continue
+      }
 
-    const ocrText = await processSingleFile(file.name, i, recognitionMeta)
-    const fields = await extractFieldsFromText(ocrText, file.name, recognitionMeta)
-
-    batchResults.value.push({
-      fileName: file.name,
-      previewUrl: fileContent,
-      fields: fields,
-      status: 'pending',
-      recognitionMeta
-    })
-
-    batchQueue.value[i].status = 'done'
-    batchQueue.value[i].progress = 100
+      const fields = await extractFieldsFromText(ocrText, file.name, recognitionMeta)
+      results[i] = {
+        fileName: file.name,
+        previewUrl: fileContent,
+        fields,
+        status: 'pending',
+        recognitionMeta
+      }
+      batchQueue.value[i].status = 'done'
+      batchQueue.value[i].progress = 100
+    }
   }
+
+  await Promise.all(Array.from({ length: workerCount }, () => runWorker()))
+
+  batchResults.value = results.filter(Boolean)
 
   activeResultIndex.value = 0
   pendingAiFiles.value = []
-  addLog('🎊 批量扫描已完成，进入核对环节。', 'success')
+  addLog(`🎊 批量扫描已完成，成功 ${batchResults.value.length}/${files.length}，进入核对环节。`, 'success')
   setTimeout(() => {
     step.value = 3
   }, 800)
@@ -385,9 +482,10 @@ const handleFileUpload = async (e: Event) => {
   }
 }
 
-const processSingleFile = async (name: string, index: number, recognitionMeta: RecognitionMetaPayload) => {
+const processSingleFile = async (name: string, index: number, recognitionMeta: RecognitionMetaPayload, imageBase64?: string) => {
   addLog(`📄 正在识别页面 [${index + 1}/${batchQueue.value.length}]: ${name}`, 'info')
   batchQueue.value[index].progress = 20
+  const base64 = imageBase64 || fileBase64.value
   
   try {
     const ocrResp = await chatProxy({
@@ -396,7 +494,7 @@ const processSingleFile = async (name: string, index: number, recognitionMeta: R
       messages: [
         { role: 'user', content: [
           { type: 'text', text: '请准确识别并提取这张合同图片中的所有文字内容。' },
-          { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${fileBase64.value}` } }
+          { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64}` } }
         ]}
       ]
     })
